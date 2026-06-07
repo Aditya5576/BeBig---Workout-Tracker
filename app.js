@@ -1082,10 +1082,10 @@ function renderActiveWorkoutUI() {
           </td>
           <td class="set-previous">${set.previous || '—'}</td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight !== undefined ? set.weight : ''}" data-field="weight">
+            <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight || ''}" data-field="weight">
           </td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined ? set.reps : ''}" data-field="reps">
+            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps || ''}" data-field="reps">
           </td>
           <td>
             <div class="set-checkmark" data-action="toggle-complete">

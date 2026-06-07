@@ -1359,7 +1359,7 @@ html, body {
 .modal-list::-webkit-scrollbar { display: none; }
 
 .modal-footer {
-  padding: 12px 18px;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)) 18px;
   border-top: 1px solid var(--border-light);
   flex-shrink: 0;
 }
