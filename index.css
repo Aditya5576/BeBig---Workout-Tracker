@@ -3512,3 +3512,138 @@ html, body {
   -webkit-text-fill-color: transparent;
   text-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
 }
+
+/* --- AI WORKOUT COACH STYLES --- */
+.ai-coach-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.05);
+  transition: all var(--transition-smooth);
+}
+
+.ai-coach-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
+  border-color: var(--color-primary) !important;
+}
+
+/* Recovery Options Cards */
+.recovery-option-card {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.recovery-option-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.recovery-option-card.active {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+.recovery-option-icon {
+  font-size: 1.4rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recovery-option-card.active .recovery-option-icon {
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.recovery-option-info h4 {
+  font-family: var(--font-heading);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 2px 0;
+}
+
+.recovery-option-info p {
+  font-size: 0.72rem;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+/* Progressive Overload Suggestion Badges */
+.overload-badge-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.overload-badge {
+  background: rgba(212, 252, 52, 0.08);
+  border: 1px solid rgba(212, 252, 52, 0.3);
+  color: #d4fc34;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  letter-spacing: 0.5px;
+  animation: pulse-border 2s infinite ease-in-out;
+  transition: all var(--transition-smooth);
+}
+
+.overload-badge:hover {
+  background: rgba(212, 252, 52, 0.15);
+  border-color: #d4fc34;
+  transform: translateY(-0.5px);
+}
+
+@keyframes pulse-border {
+  0% { box-shadow: 0 0 0 0 rgba(212, 252, 52, 0.2); }
+  70% { box-shadow: 0 0 0 5px rgba(212, 252, 52, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(212, 252, 52, 0); }
+}
+
+/* AI coach suggestions lists styling */
+.ai-suggested-ex-card {
+  background: rgba(255,255,255,0.01);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-suggested-ex-info h5 {
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.ai-suggested-ex-info span {
+  font-size: 0.68rem;
+  color: var(--text-dark);
+}
+
+.ai-suggested-ex-sets {
+  font-size: 0.78rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  font-family: var(--font-heading);
+}

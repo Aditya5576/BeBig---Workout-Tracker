@@ -138,6 +138,9 @@ let state = {
   }
 };
 
+let pendingTemplateId = null;
+let currentGeneratedWorkout = null;
+
 function initStore() {
   state.exercises = store.get("exercises", DEFAULT_EXERCISES);
   state.templates = store.get("templates", DEFAULT_TEMPLATES);
@@ -981,6 +984,33 @@ function startWorkoutSession(templateId = null) {
     return;
   }
 
+  // Intercept to display recovery assessment modal
+  pendingTemplateId = templateId;
+  
+  // Reset active classes in recovery cards (set 'none' as default)
+  const recoveryCards = document.querySelectorAll(".recovery-option-card");
+  recoveryCards.forEach(c => {
+    c.classList.remove("active");
+    if (c.dataset.fatigue === "none") {
+      c.classList.add("active");
+    }
+  });
+
+  const recoveryModal = document.getElementById("modal-recovery-check");
+  if (recoveryModal) {
+    recoveryModal.classList.remove("hidden");
+  } else {
+    // Fallback if modal isn't present
+    initializeWorkoutSession(templateId, "none");
+  }
+}
+
+function initializeWorkoutSession(templateId, fatigue) {
+  const recoveryModal = document.getElementById("modal-recovery-check");
+  if (recoveryModal) {
+    recoveryModal.classList.add("hidden");
+  }
+
   let workoutName = "Evening Workout";
   let workoutNotes = "";
   let exercisesToLoad = [];
@@ -993,21 +1023,45 @@ function startWorkoutSession(templateId = null) {
       
       // Load exercises and sets from template
       exercisesToLoad = tmpl.exercises.map(ex => {
-        // For previous values, lookup this exercise in completed history
         const previousString = getPreviousSetStatsString(ex.exerciseId);
         
+        let loadedSets = ex.sets.map((s, idx) => ({
+          id: `set-${Date.now()}-${idx}-${Math.random()}`,
+          type: s.type || "N",
+          weight: s.weight,
+          reps: s.reps,
+          completed: false,
+          previous: previousString
+        }));
+
+        // Soreness deload adjustment: cut last set and decrease weights by 10%
+        if (fatigue === "sore") {
+          if (loadedSets.length > 1) {
+            loadedSets.pop();
+          }
+          loadedSets = loadedSets.map(s => {
+            let adjustedWeight = s.weight;
+            if (typeof adjustedWeight === "number") {
+              adjustedWeight = parseFloat((adjustedWeight * 0.9).toFixed(1));
+            } else if (typeof adjustedWeight === "string" && !isNaN(parseFloat(adjustedWeight))) {
+              adjustedWeight = parseFloat((parseFloat(adjustedWeight) * 0.9).toFixed(1));
+            }
+            return {
+              ...s,
+              weight: adjustedWeight
+            };
+          });
+        }
+
         return {
           exerciseId: ex.exerciseId,
-          sets: ex.sets.map((s, idx) => ({
-            id: `set-${Date.now()}-${idx}-${Math.random()}`,
-            type: s.type || "N",
-            weight: s.weight,
-            reps: s.reps,
-            completed: false,
-            previous: previousString
-          }))
+          sets: loadedSets
         };
       });
+
+      if (fatigue === "sore") {
+        workoutNotes = (workoutNotes ? workoutNotes + "\n" : "") + "Coach Note: Deload applied due to soreness (-1 set, -10% weight).";
+      }
     }
   }
 
@@ -1016,7 +1070,8 @@ function startWorkoutSession(templateId = null) {
     name: workoutName,
     notes: workoutNotes,
     startTime: Date.now(),
-    exercises: exercisesToLoad
+    exercises: exercisesToLoad,
+    fatigue: fatigue // save recovery assessment state
   };
 
   saveAllState();
@@ -1088,6 +1143,38 @@ function renderActiveWorkoutUI() {
       const isCompleted = set.completed;
       const typeDisplay = set.type === "N" ? (setIdx + 1) : set.type;
       
+      // Check for progressive overload suggestion
+      let showOverloadBadge = false;
+      const unit = state.settings.unit || "lbs";
+      const overloadAmount = unit === "kg" ? 2.5 : 5;
+      
+      const fatigue = state.activeWorkout ? state.activeWorkout.fatigue : "none";
+      
+      if (fatigue === "none" && !set.overloadApplied && !isCompleted) {
+        const targetReps = parseInt(set.reps);
+        if (!isNaN(targetReps) && targetReps > 0) {
+          for (let i = state.history.length - 1; i >= 0; i--) {
+            const histWorkout = state.history[i];
+            const targetEx = histWorkout.exercises.find(e => e.exerciseId === activeEx.exerciseId);
+            if (targetEx && targetEx.sets && targetEx.sets.length > 0) {
+              const histSet = targetEx.sets[setIdx];
+              if (histSet && histSet.completed && histSet.reps >= targetReps) {
+                showOverloadBadge = true;
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      const badgeHTML = showOverloadBadge 
+        ? `<div class="overload-badge-container" style="margin-top: 3px;">
+             <button class="overload-badge" data-action="apply-overload" title="Hit target reps in last session! Click to overload +${overloadAmount} ${unit}">
+               ⚡ +${overloadAmount} ${unit}
+             </button>
+           </div>`
+        : "";
+
       rowsHTML += `
         <tr class="set-table-row ${isCompleted ? 'completed' : ''}" data-set-index="${setIdx}">
           <td>
@@ -1098,6 +1185,7 @@ function renderActiveWorkoutUI() {
           <td class="set-previous">${set.previous || '—'}</td>
           <td class="set-input-cell">
             <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
+            ${badgeHTML}
           </td>
           <td class="set-input-cell">
             <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined && set.reps !== null && set.reps !== '' ? set.reps : ''}" data-field="reps">
@@ -1176,7 +1264,22 @@ function handleActiveWorkoutClickEvents(e) {
     const row = target.closest(".set-table-row");
     const setIdx = row ? parseInt(row.dataset.setIndex) : null;
 
-    if (action === "toggle-complete") {
+    if (action === "apply-overload") {
+      const set = activeEx.sets[setIdx];
+      const unit = state.settings.unit || "lbs";
+      const overloadAmount = unit === "kg" ? 2.5 : 5;
+      
+      let currWeight = parseFloat(set.weight);
+      if (isNaN(currWeight)) {
+        currWeight = 0;
+      }
+      set.weight = currWeight + overloadAmount;
+      set.overloadApplied = true;
+      
+      saveAllState();
+      renderActiveWorkoutUI();
+    }
+    else if (action === "toggle-complete") {
       // Weight & Rep validation
       const weightInput = row.querySelector(".input-set-weight");
       const repsInput = row.querySelector(".input-set-reps");
@@ -3636,6 +3739,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Set up AI Coach and Recovery modal listeners
+  setupAiCoachAndRecoveryListeners();
+
   // Clean initialization of Lucide Icons
   if (window.lucide) window.lucide.createIcons();
 });
@@ -4607,6 +4713,240 @@ function runSplashLoadingSequence() {
 
   // Start sequence
   nextStep();
+}
+
+// ==========================================================================
+// 16. AI WORKOUT COACH & PROGRESSIVE OVERLOAD ENGINE
+// ==========================================================================
+
+function setupAiCoachAndRecoveryListeners() {
+  // 1. AI Coach Modal Trigger
+  const btnTrigger = document.getElementById("btn-ai-coach-trigger");
+  const modalAiCoach = document.getElementById("modal-ai-coach");
+  const btnCloseAiCoach = document.getElementById("btn-close-ai-coach");
+
+  if (btnTrigger && modalAiCoach) {
+    btnTrigger.addEventListener("click", () => {
+      modalAiCoach.classList.remove("hidden");
+      
+      // Ensure we start with the form view
+      document.getElementById("ai-coach-form").classList.remove("hidden");
+      document.getElementById("ai-coach-loading").classList.add("hidden");
+      document.getElementById("ai-coach-result").classList.add("hidden");
+      currentGeneratedWorkout = null;
+    });
+  }
+
+  if (btnCloseAiCoach && modalAiCoach) {
+    btnCloseAiCoach.addEventListener("click", () => {
+      modalAiCoach.classList.add("hidden");
+    });
+  }
+
+  // 2. AI Coach Generation Submission
+  const btnGenerateSubmit = document.getElementById("btn-ai-generate-submit");
+  if (btnGenerateSubmit) {
+    btnGenerateSubmit.addEventListener("click", async () => {
+      const selectGoal = document.getElementById("select-ai-goal");
+      const selectSplit = document.getElementById("select-ai-split");
+      const selectEquipment = document.getElementById("select-ai-equipment");
+      const selectExperience = document.getElementById("select-ai-experience");
+      const selectDuration = document.getElementById("select-ai-duration");
+
+      const goal = selectGoal ? selectGoal.value : "";
+      const split = selectSplit ? selectSplit.value : "";
+      const equipment = selectEquipment ? selectEquipment.value : "";
+      const experience = selectExperience ? selectExperience.value : "";
+      const duration = selectDuration ? selectDuration.value : "";
+
+      // Show loading UI
+      document.getElementById("ai-coach-form").classList.add("hidden");
+      document.getElementById("ai-coach-loading").classList.remove("hidden");
+      document.getElementById("ai-coach-result").classList.add("hidden");
+
+      // Random fitness loading quote
+      const FITNESS_QUOTES = [
+        "\"The iron never lies to you.\" — Henry Rollins",
+        "\"No citizen has a right to be an amateur in the matter of physical training.\" — Socrates",
+        "\"We are what we repeatedly do. Excellence, then, is not an act, but a habit.\" — Aristotle",
+        "\"If you want something you've never had, you must be willing to do something you've never done.\"",
+        "\"Success isn't always about greatness. It's about consistency.\"",
+        "\"Energy and persistence conquer all things.\" — Benjamin Franklin"
+      ];
+      const quoteEl = document.getElementById("ai-loading-quote");
+      if (quoteEl) {
+        quoteEl.textContent = FITNESS_QUOTES[Math.floor(Math.random() * FITNESS_QUOTES.length)];
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/ai/generate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ goal, split, equipment, experience, duration })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server returned HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.success || !data.workout) {
+          throw new Error(data.error || "Empty response from coach API");
+        }
+
+        currentGeneratedWorkout = data.workout;
+
+        // Populate results UI
+        document.getElementById("ai-result-workout-name").textContent = currentGeneratedWorkout.name || "AI Generated Workout";
+        document.getElementById("ai-result-workout-notes").textContent = currentGeneratedWorkout.notes || "";
+
+        const listContainer = document.getElementById("ai-result-exercises-list");
+        listContainer.innerHTML = "";
+
+        if (Array.isArray(currentGeneratedWorkout.exercises)) {
+          currentGeneratedWorkout.exercises.forEach(ex => {
+            const item = document.createElement("div");
+            item.style.background = "rgba(255, 255, 255, 0.02)";
+            item.style.border = "1px solid var(--border-light)";
+            item.style.borderRadius = "8px";
+            item.style.padding = "10px 12px";
+            item.style.display = "flex";
+            item.style.justifyContent = "space-between";
+            item.style.alignItems = "center";
+
+            const setsCount = ex.sets ? ex.sets.length : 0;
+            const repsInfo = setsCount > 0 ? `${setsCount} sets × ${ex.sets[0].reps} reps` : "No sets";
+            const weightInfo = setsCount > 0 && ex.sets[0].weight ? `@ ${ex.sets[0].weight} ${state.settings.unit || 'lbs'}` : "";
+
+            item.innerHTML = `
+              <div>
+                <h5 style="margin: 0; color: var(--text-main); font-weight: 700; font-size: 0.85rem;">${ex.name}</h5>
+                <span style="font-size: 0.65rem; color: var(--text-muted);">${ex.muscle || "General"} • ${ex.category || "Exercise"}</span>
+              </div>
+              <div style="text-align: right;">
+                <span style="font-weight: 700; color: var(--color-primary); font-size: 0.8rem;">${repsInfo}</span>
+                <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">${weightInfo}</span>
+              </div>
+            `;
+            listContainer.appendChild(item);
+          });
+        }
+
+        document.getElementById("ai-coach-loading").classList.add("hidden");
+        document.getElementById("ai-coach-result").classList.remove("hidden");
+        if (window.lucide) window.lucide.createIcons();
+      } catch (err) {
+        alert("AI Generation failed: " + err.message);
+        // Reset view back to parameters form
+        document.getElementById("ai-coach-loading").classList.add("hidden");
+        document.getElementById("ai-coach-form").classList.remove("hidden");
+      }
+    });
+  }
+
+  // 3. Reset preview and form
+  const btnReset = document.getElementById("btn-ai-result-reset");
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      document.getElementById("ai-coach-result").classList.add("hidden");
+      document.getElementById("ai-coach-form").classList.remove("hidden");
+      currentGeneratedWorkout = null;
+    });
+  }
+
+  // 4. Save to Library
+  const btnSave = document.getElementById("btn-ai-result-save");
+  if (btnSave) {
+    btnSave.addEventListener("click", () => {
+      if (!currentGeneratedWorkout) return;
+
+      const exercisesMapped = currentGeneratedWorkout.exercises.map(ex => {
+        let existingEx = state.exercises.find(e => e.name.toLowerCase() === ex.name.toLowerCase());
+        let exId;
+        if (existingEx) {
+          exId = existingEx.id;
+        } else {
+          exId = "custom-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+          const newEx = {
+            id: exId,
+            name: ex.name,
+            muscle: ex.muscle || "Chest",
+            category: ex.category || "Dumbbell",
+            instructions: "Generated by AI Coach.",
+            updated_at: Date.now(),
+            deleted: 0
+          };
+          state.exercises.push(newEx);
+        }
+
+        const mappedSets = ex.sets.map(s => ({
+          type: s.type || "N",
+          weight: s.weight || 0,
+          reps: s.reps || 10
+        }));
+
+        return {
+          exerciseId: exId,
+          sets: mappedSets
+        };
+      });
+
+      const newTmpl = {
+        id: "template-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+        name: currentGeneratedWorkout.name || "AI Generated Workout",
+        notes: currentGeneratedWorkout.notes || "",
+        exercises: exercisesMapped,
+        updated_at: Date.now(),
+        deleted: 0
+      };
+
+      state.templates.push(newTmpl);
+      saveAllState();
+
+      // Reset modal inputs and states
+      document.getElementById("modal-ai-coach").classList.add("hidden");
+      document.getElementById("ai-coach-result").classList.add("hidden");
+      document.getElementById("ai-coach-form").classList.remove("hidden");
+      currentGeneratedWorkout = null;
+
+      alert("Workout saved to Library!");
+      renderStartView();
+
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
+    });
+  }
+
+  // 5. Recovery modal buttons options toggles
+  const recoveryCards = document.querySelectorAll(".recovery-option-card");
+  recoveryCards.forEach(card => {
+    card.addEventListener("click", () => {
+      recoveryCards.forEach(c => c.classList.remove("active"));
+      card.classList.add("active");
+    });
+  });
+
+  // 6. Recovery Close
+  const btnCloseRecovery = document.getElementById("btn-close-recovery-check");
+  if (btnCloseRecovery) {
+    btnCloseRecovery.addEventListener("click", () => {
+      document.getElementById("modal-recovery-check").classList.add("hidden");
+      pendingTemplateId = null;
+    });
+  }
+
+  // 7. Confirm Recovery & Launch Session
+  const btnConfirmRecovery = document.getElementById("btn-confirm-recovery-start");
+  if (btnConfirmRecovery) {
+    btnConfirmRecovery.addEventListener("click", () => {
+      const activeOption = document.querySelector(".recovery-option-card.active");
+      const fatigue = activeOption ? activeOption.dataset.fatigue : "none";
+      initializeWorkoutSession(pendingTemplateId, fatigue);
+    });
+  }
 }
 
 

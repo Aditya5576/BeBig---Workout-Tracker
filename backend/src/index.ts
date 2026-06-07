@@ -4,6 +4,7 @@ import { cors } from 'hono/cors';
 type Bindings = {
   DB: D1Database;
   SESSIONS: KVNamespace;
+  AI: any;
 };
 
 type Variables = {
@@ -593,6 +594,71 @@ app.post('/api/admin/assign-template', async (c) => {
     return c.json({ success: true, templateId });
   } catch (err: any) {
     return c.json({ error: 'Failed to assign template: ' + err.message }, 500);
+  }
+});
+
+// AI Workout Generation Endpoint (Open to clients and guests)
+app.post('/api/ai/generate', async (c) => {
+  try {
+    const { goal, split, equipment, experience, duration } = await c.req.json();
+
+    const systemPrompt = `You are an expert fitness coach and personal trainer. 
+Generate a workout routine based on the user's details.
+Return ONLY a valid JSON object. Do NOT include any markdown code blocks, backticks, explanations, or extra text.
+
+The JSON object MUST strictly follow this typescript schema:
+{
+  "name": string (a short, motivating workout name, e.g. "Iron Core Push Day"),
+  "notes": string (coach tips/instructions for this session),
+  "exercises": Array<{
+    "name": string (standard exercise name, e.g. "Bench Press (Barbell)", "Squat (Barbell)", "Bicep Curl (Dumbbell)", "Push Up"),
+    "muscle": string (primary muscle target, e.g. "Chest", "Quads", "Biceps", "Triceps", "Shoulders", "Back", "Hamstrings", "Abs", "Calves"),
+    "category": string (e.g., "Barbell", "Dumbbell", "Bodyweight", "Machine", "Cables"),
+    "sets": Array<{
+      "type": "N",
+      "weight": number (suggested starting weight in lbs for an intermediate, e.g. 135 for bench press, 30 for dumbbells, 0 for bodyweight exercises),
+      "reps": number (suggested target reps, e.g. 8, 10, 12)
+    }>
+  }>
+}
+
+Generate between 3 to 6 exercises appropriate for the split and duration. Suggest realistic weights and normal rep targets.`;
+
+    const userPrompt = `Generate a workout with the following criteria:
+- Fitness Goal: ${goal || 'General Fitness'}
+- Training Split: ${split || 'Full Body'}
+- Available Equipment: ${equipment || 'Full Gym'}
+- Experience Level: ${experience || 'Intermediate'}
+- Target Duration: ${duration || '45'} minutes`;
+
+    const aiRes: any = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 1200
+    });
+
+    let rawText = '';
+    if (aiRes && aiRes.response) {
+      rawText = aiRes.response.trim();
+    } else if (typeof aiRes === 'string') {
+      rawText = aiRes.trim();
+    } else {
+      throw new Error('No response from AI model');
+    }
+
+    // Clean any markdown backticks if returned
+    if (rawText.startsWith('```')) {
+      rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
+    }
+
+    const parsedWorkout = JSON.parse(rawText);
+    return c.json({ success: true, workout: parsedWorkout });
+
+  } catch (err: any) {
+    return c.json({ error: 'AI generation failed: ' + err.message }, 500);
   }
 });
 

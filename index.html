@@ -285,6 +285,19 @@
             </div>
           </div>
 
+          <!-- AI Coach Card -->
+          <div class="action-card ai-coach-card" id="btn-ai-coach-trigger" style="margin-top: 12px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(212, 252, 52, 0.03) 100%); border: 1px dashed rgba(16, 185, 129, 0.3);">
+            <div class="action-card-content">
+              <h3 style="color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="sparkles" style="width: 16px; height: 16px; color: var(--color-primary);"></i> AI Workout Coach
+              </h3>
+              <p>Generate custom routines using local database & Workers AI</p>
+            </div>
+            <div class="action-card-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--color-primary);">
+              <i data-lucide="sparkles"></i>
+            </div>
+          </div>
+
           <!-- Templates Section -->
           <div class="section-header">
             <h2>Templates</h2>
@@ -1192,6 +1205,151 @@
     </div>
   </div>
 
+  <!-- MODAL: AI WORKOUT COACH (AUTO-GENERATION) -->
+  <div id="modal-ai-coach" class="modal-overlay hidden" style="z-index: 2100;">
+    <div class="modal-content standard admin-detail">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i data-lucide="sparkles" style="width: 20px; height: 20px; color: var(--color-primary); filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.45));"></i>
+          <h2 style="font-size: 1.15rem; font-weight: 800; font-family: var(--font-heading); margin: 0;">AI Workout Coach</h2>
+        </div>
+        <button class="btn-close-modal" id="btn-close-ai-coach"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body scrollable" style="max-height: 60vh; padding-bottom: 20px;">
+        
+        <!-- Parameters Form -->
+        <div id="ai-coach-form">
+          <p class="modal-description" style="margin-bottom: 15px;">Specify your training preferences and let the AI Coach build a customized stable routine.</p>
+          
+          <div class="form-group">
+            <label for="select-ai-goal">Training Goal</label>
+            <select id="select-ai-goal" class="select-dropdown">
+              <option value="Strength Training">Strength (Powerlifting / Compound Power)</option>
+              <option value="Muscle Growth (Hypertrophy)" selected>Muscle Growth (Hypertrophy / Bodybuilding)</option>
+              <option value="Endurance & Conditioning">Endurance & Cardio-Conditioning</option>
+              <option value="Fat Loss & Tone">Fat Loss & Active Calorie Burn</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="select-ai-split">Training Split</label>
+            <select id="select-ai-split" class="select-dropdown">
+              <option value="Full Body">Full Body (All-rounder)</option>
+              <option value="Push/Pull/Legs">Push / Pull / Legs (PPL Split)</option>
+              <option value="Upper/Lower">Upper Body / Lower Body Split</option>
+              <option value="Arms & Shoulders Focus">Chest/Back or Arm Blaster Focus</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="select-ai-equipment">Available Equipment</label>
+            <select id="select-ai-equipment" class="select-dropdown">
+              <option value="Full Gym (Barbells, Dumbbells, Machines)" selected>Full Commercial Gym (All Equipment)</option>
+              <option value="Dumbbells Only">Home Gym (Dumbbells Only)</option>
+              <option value="Bodyweight Only (Calisthenics)">No Equipment (Bodyweight/Calisthenics)</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="form-group">
+              <label for="select-ai-experience">Experience Level</label>
+              <select id="select-ai-experience" class="select-dropdown">
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate" selected>Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="select-ai-duration">Target Duration</label>
+              <select id="select-ai-duration" class="select-dropdown">
+                <option value="30">30 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="60" selected>60 minutes</option>
+                <option value="90">90 minutes</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="btn-ai-generate-submit" class="btn-success btn-full-width" style="margin-top: 15px;">
+            <i data-lucide="sparkles" style="width: 14px; height: 14px; margin-right: 6px;"></i> Generate AI Workout
+          </button>
+        </div>
+
+        <!-- Loading State -->
+        <div id="ai-coach-loading" class="hidden" style="text-align: center; padding: 40px 20px;">
+          <div class="skeleton-loader" style="margin: 0 auto 20px auto; width: 40px; height: 40px; border-radius: 50%; border-top-color: var(--color-primary);"></div>
+          <h3 style="font-family: var(--font-heading); color: var(--text-main); font-size: 1rem; margin-bottom: 6px;">Coach is designing your workout...</h3>
+          <p id="ai-loading-quote" style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">"The iron never lies to you."</p>
+        </div>
+
+        <!-- Preview Result -->
+        <div id="ai-coach-result" class="hidden">
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); border-radius: 12px; padding: 14px; margin-bottom: 15px;">
+            <h3 id="ai-result-workout-name" style="font-family: var(--font-heading); color: var(--color-primary); font-size: 1.1rem; margin: 0 0 6px 0;">Routine Name</h3>
+            <p id="ai-result-workout-notes" style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; margin: 0;">Coach notes here.</p>
+          </div>
+          
+          <h4 style="font-family: var(--font-heading); font-size: 0.85rem; margin: 15px 0 8px 0; color: var(--text-main); font-weight: 600;">Exercises Suggested</h4>
+          <div id="ai-result-exercises-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Suggested exercises -->
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; margin-top: 20px;">
+            <button id="btn-ai-result-reset" class="btn-secondary" style="padding: 11px;">
+              <i data-lucide="rotate-ccw" style="width: 14px; height: 14px;"></i> Reset Form
+            </button>
+            <button id="btn-ai-result-save" class="btn-success" style="padding: 11px;">
+              <i data-lucide="save" style="width: 14px; height: 14px; margin-right: 4px;"></i> Save to Library
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: RECOVERY ASSESSMENT (BEFORE WORKOUT) -->
+  <div id="modal-recovery-check" class="modal-overlay hidden" style="z-index: 2100;">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2 style="font-size: 1.1rem; font-weight: 800; font-family: var(--font-heading); margin: 0;">Recovery Check-in</h2>
+        <button class="btn-close-modal" id="btn-close-recovery-check"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description" style="margin-bottom: 18px;">How is your body feeling today? The Coach will adjust sets and suggestions based on your fatigue level.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="recovery-option-card clickable active" data-fatigue="none">
+            <div class="recovery-option-icon">⚡</div>
+            <div class="recovery-option-info">
+              <h4>Feeling Strong / Recovered</h4>
+              <p>Ready for progressive overload and standard volumes</p>
+            </div>
+          </div>
+
+          <div class="recovery-option-card clickable" data-fatigue="mild">
+            <div class="recovery-option-icon">💤</div>
+            <div class="recovery-option-info">
+              <h4>Mild Fatigue / Sleepy</h4>
+              <p>Moderate energy. Standard workouts, no heavy overload pushing</p>
+            </div>
+          </div>
+
+          <div class="recovery-option-card clickable" data-fatigue="sore">
+            <div class="recovery-option-icon">⚠️</div>
+            <div class="recovery-option-info" style="color: var(--color-danger);">
+              <h4>Under-Recovered / Very Sore</h4>
+              <p>Deload workout: cut sets count by 1 and decrease weights by 10%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding-top: 10px;">
+        <button id="btn-confirm-recovery-start" class="btn-success btn-full-width">Launch Workout Session</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Hidden File Input for Profile Photo Gallery Upload -->
   <input type="file" id="input-profile-photo" accept="image/*" class="hidden">
 
@@ -1199,6 +1357,6 @@
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Application JS Code -->
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
