@@ -954,9 +954,24 @@ const Analytics = {
   }
 };
 
-// ==========================================================================
-// 8. ACTIVE WORKOUT LOGGER & CONTROL ENGINE
-// ==========================================================================
+function updateMiniBarState(visible) {
+  const miniBar = document.getElementById("mini-workout-bar");
+  const shell = document.querySelector(".phone-shell");
+  if (miniBar) {
+    if (visible) {
+      miniBar.classList.remove("hidden");
+    } else {
+      miniBar.classList.add("hidden");
+    }
+  }
+  if (shell) {
+    if (visible) {
+      shell.classList.add("mini-workout-active");
+    } else {
+      shell.classList.remove("mini-workout-active");
+    }
+  }
+}
 
 function startWorkoutSession(templateId = null) {
   // If a workout is already active, prompt to finish it
@@ -1014,7 +1029,7 @@ function startWorkoutSession(templateId = null) {
   // Toggle screens
   document.getElementById("workout-panel").classList.remove("minimized");
   document.getElementById("workout-panel").classList.add("open");
-  document.getElementById("mini-workout-bar").classList.add("hidden");
+  updateMiniBarState(false);
 
   startWorkoutTimer();
 }
@@ -1350,7 +1365,7 @@ function finishActiveWorkout() {
   // Reset overlays
   document.getElementById("workout-panel").classList.remove("open");
   document.getElementById("workout-panel").classList.remove("minimized");
-  document.getElementById("mini-workout-bar").classList.add("hidden");
+  updateMiniBarState(false);
 
   // Visual success celebration chime
   SoundSynth.beep(523.25, 0.15); // C5
@@ -1374,7 +1389,7 @@ function cancelActiveWorkout() {
 
     document.getElementById("workout-panel").classList.remove("open");
     document.getElementById("workout-panel").classList.remove("minimized");
-    document.getElementById("mini-workout-bar").classList.add("hidden");
+    updateMiniBarState(false);
     
     // Switch to workouts view
     switchView("workouts");
@@ -2945,7 +2960,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (state.activeWorkout) {
     renderActiveWorkoutUI();
     document.getElementById("workout-panel").classList.add("minimized");
-    document.getElementById("mini-workout-bar").classList.remove("hidden");
+    updateMiniBarState(true);
     startWorkoutTimer();
   }
 
@@ -3103,7 +3118,7 @@ document.addEventListener("DOMContentLoaded", () => {
         wPanel.classList.remove("minimized");
         wPanel.classList.add("open");
       }
-      if (miniBar) miniBar.classList.add("hidden");
+      updateMiniBarState(false);
     });
   }
 
@@ -3114,7 +3129,7 @@ document.addEventListener("DOMContentLoaded", () => {
         wPanel.classList.remove("open");
         wPanel.classList.add("minimized");
       }
-      if (miniBar) miniBar.classList.remove("hidden");
+      updateMiniBarState(true);
     });
   }
 
@@ -3125,7 +3140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         wPanel.classList.remove("minimized");
         wPanel.classList.add("open");
       }
-      if (miniBar) miniBar.classList.add("hidden");
+      updateMiniBarState(false);
     });
   }
 
@@ -3136,11 +3151,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (wPanel.classList.contains("open")) {
           wPanel.classList.remove("open");
           wPanel.classList.add("minimized");
-          if (miniBar) miniBar.classList.remove("hidden");
+          updateMiniBarState(true);
         } else {
           wPanel.classList.remove("minimized");
           wPanel.classList.add("open");
-          if (miniBar) miniBar.classList.add("hidden");
+          updateMiniBarState(false);
         }
       }
     });

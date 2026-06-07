@@ -234,6 +234,10 @@ html, body {
   z-index: 5;
 }
 
+.phone-shell.mini-workout-active .app-view {
+  padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+}
+
 .view-title {
   font-family: var(--font-heading);
   font-weight: 800;
