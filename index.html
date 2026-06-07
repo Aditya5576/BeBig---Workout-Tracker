@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>BeBig - Premium Workout Tracker</title>
+  <meta name="description" content="A premium, feature-rich, high-performance workout tracker inspired by Strong. Track routines, log sets, calculate plates, and analyze stats with zero limits.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  
+  <div class="app-container">
+    <!-- Main Shell resembling a sleek mobile layout, centered on desktop -->
+    <main class="phone-shell">
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="header-left-group">
+          <div class="profile-avatar">AB</div>
+          <div class="header-logo">
+            <span class="logo-accent">Be</span><span>Big</span>
+          </div>
+        </div>
+        <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
+          <button id="btn-sync-now-header" class="btn-icon-only-flat hidden" title="Sync with Cloud">
+            <i data-lucide="cloud-lightning" style="width: 18px; height: 18px; color: var(--text-dark);"></i>
+          </button>
+          <button id="active-timer-widget" class="active-timer-widget hidden">
+            <i data-lucide="timer"></i>
+            <span id="widget-timer-text">00:00</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- View Containers -->
+      <div class="views-wrapper">
+        
+        <!-- 0. HOME VIEW (DASHBOARD) -->
+        <section id="view-home" class="app-view active">
+          <!-- Top profile banner -->
+          <div id="home-photo-banner" class="home-banner hidden">
+            <div class="banner-icon-bg">
+              <i data-lucide="image" style="color: #d4fc34; width: 16px; height: 16px;"></i>
+            </div>
+            <div class="banner-text">
+              <h4>Add a profile photo</h4>
+              <p>Optional. Make it yours.</p>
+            </div>
+            <div class="banner-actions">
+              <button id="btn-banner-skip" class="btn-banner-text">Skip</button>
+              <button id="btn-banner-add" class="btn-banner-action-btn">Add Photo</button>
+            </div>
+          </div>
+
+          <!-- Glass Hero Card: Profile, Greeting, and Status Quote -->
+          <div class="home-hero-card">
+            <div class="hero-card-glow"></div>
+            <div class="hero-top-row">
+              <div class="greeting-text-container">
+                <h1 id="home-greeting-title">Good Day, Athlete</h1>
+                <p class="greeting-subtitle" id="home-greeting-quote">Unlock Your Potential</p>
+              </div>
+              <div class="profile-glow-avatar" id="home-profile-avatar">
+                <span id="home-avatar-initials">AB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance Pod Grid -->
+          <div class="home-performance-grid">
+            <!-- Streak Circle Widget -->
+            <div class="perf-card streak-pod">
+              <div class="streak-svg-wrapper">
+                <svg viewBox="0 0 100 100" class="streak-ring-svg">
+                  <defs>
+                    <linearGradient id="streak-ring-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#d4fc34" />
+                      <stop offset="100%" stop-color="#10b981" />
+                    </linearGradient>
+                  </defs>
+                  <circle cx="50" cy="50" r="40" class="ring-bg"></circle>
+                  <circle cx="50" cy="50" r="40" class="ring-fg" id="streak-ring-progress" stroke-dasharray="251.2" stroke-dashoffset="251.2"></circle>
+                </svg>
+                <div class="streak-value-container">
+                  <span id="home-streak-count" class="streak-count-value">0</span>
+                  <span class="streak-count-label">STREAK</span>
+                </div>
+              </div>
+              <div class="streak-badge-row">
+                <i data-lucide="flame" class="icon-streak"></i>
+                <span id="streak-day-text">0 Day Streak</span>
+              </div>
+            </div>
+
+            <!-- Weekly Activity Dot Calendar -->
+            <div class="perf-card activity-pod">
+              <div class="perf-header">
+                <i data-lucide="activity" class="icon-week-header"></i>
+                <span>WEEKLY SESSIONS</span>
+              </div>
+              <div class="sessions-stat-row">
+                <span id="home-week-sessions" class="sessions-value">0</span>
+                <span class="sessions-label">workouts</span>
+              </div>
+              <div class="weekly-dots-container" id="home-weekly-dots">
+                <div class="week-dot" data-offset="6"><span>M</span></div>
+                <div class="week-dot" data-offset="5"><span>T</span></div>
+                <div class="week-dot" data-offset="4"><span>W</span></div>
+                <div class="week-dot" data-offset="3"><span>T</span></div>
+                <div class="week-dot" data-offset="2"><span>W</span></div>
+                <div class="week-dot" data-offset="1"><span>T</span></div>
+                <div class="week-dot" data-offset="0"><span>F</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Carbon-Style Launch Session CTA -->
+          <div class="home-launch-session-card" id="home-btn-start-workout">
+            <div class="launch-inner">
+              <div class="launch-icon-container">
+                <div class="launch-radar-pulse"></div>
+                <i data-lucide="play" class="launch-play-icon"></i>
+              </div>
+              <div class="launch-text">
+                <h2>LAUNCH WORKOUT</h2>
+                <p>Start an empty session or select a template</p>
+              </div>
+              <div class="launch-arrow">
+                <i data-lucide="chevron-right"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Hub Grid (Sleek Glass Capsules) -->
+          <div class="home-quick-hub">
+            <div class="hub-item" id="home-btn-log-weight">
+              <div class="hub-icon-wrapper weight-icon">
+                <i data-lucide="scale"></i>
+              </div>
+              <div class="hub-text">
+                <h3>Log Weight</h3>
+                <p id="home-weight-subtext">Track progress</p>
+              </div>
+            </div>
+            <div class="hub-item" id="home-btn-exercises">
+              <div class="hub-icon-wrapper exercises-icon">
+                <i data-lucide="search"></i>
+              </div>
+              <div class="hub-text">
+                <h3>Exercises</h3>
+                <p>Browse library</p>
+              </div>
+            </div>
+            <div class="hub-item" id="home-btn-history">
+              <div class="hub-icon-wrapper history-icon">
+                <i data-lucide="history"></i>
+              </div>
+              <div class="hub-text">
+                <h3>History</h3>
+                <p>View logs</p>
+              </div>
+            </div>
+            <div class="hub-item" id="home-btn-analytics">
+              <div class="hub-icon-wrapper stats-icon">
+                <i data-lucide="bar-chart-3"></i>
+              </div>
+              <div class="hub-text">
+                <h3>Analytics</h3>
+                <p>Visual trends</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Redesigned Muscle Focus Progress Grid -->
+          <div class="home-section-card focus-pod">
+            <div class="home-section-header">
+              <h2>Weekly Muscle Focus</h2>
+              <span class="badge-pill">LAST 7 DAYS</span>
+            </div>
+            <div id="home-weekly-focus-list" class="muscle-progress-grid">
+              <p class="empty-state-text" style="font-size: 0.78rem; text-align: left; padding: 0;">No muscle focus logged this week yet.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 1. WORKOUTS VIEW (formerly templates start view) -->
+        <section id="view-workouts" class="app-view">
+          <div class="start-header-group">
+            <h1 class="view-title">Workout Templates</h1>
+            <p class="start-subtitle">Select a routine or build a new one</p>
+          </div>
+          
+          <!-- Quick Start Card -->
+          <div class="action-card start-empty-card" id="btn-start-empty">
+            <div class="action-card-content">
+              <h3>Start an Empty Workout</h3>
+              <p>Log a workout on the fly without a template</p>
+            </div>
+            <div class="action-card-icon">
+              <i data-lucide="plus"></i>
+            </div>
+          </div>
+
+          <!-- Templates Section -->
+          <div class="section-header">
+            <h2>Templates</h2>
+            <button id="btn-new-template" class="btn-text-icon">
+              <i data-lucide="plus"></i> New Template
+            </button>
+          </div>
+
+          <div id="templates-list" class="templates-grid">
+            <!-- Dynamic templates loaded here -->
+            <div class="skeleton-loader"></div>
+          </div>
+        </section>
+
+        <!-- 1.5. SCHEDULE VIEW (PROTOCOL) -->
+        <section id="view-schedule" class="app-view">
+          <div class="start-header-group">
+            <h1 class="view-title">Protocol</h1>
+            <p class="start-subtitle">Weekly Sequence</p>
+          </div>
+          <div id="schedule-weekly-list" class="templates-grid">
+            <!-- Dynamic days list Mon-Sun -->
+          </div>
+        </section>
+
+        <!-- 2. HISTORY VIEW -->
+        <section id="view-history" class="app-view">
+          <h1 class="view-title">Workout History</h1>
+          <div id="history-search-bar" class="search-container">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="input-history-search" placeholder="Search past workouts or exercises...">
+          </div>
+          <div id="history-list" class="history-container">
+            <!-- Dynamic history list items -->
+          </div>
+        </section>
+
+        <!-- 3. EXERCISES VIEW -->
+        <section id="view-exercises" class="app-view">
+          <h1 class="view-title">Exercises</h1>
+          
+          <div class="exercises-controls">
+            <div class="search-container flex-grow">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="input-exercise-search" placeholder="Search exercises...">
+            </div>
+            <button id="btn-create-exercise" class="btn-icon-only" title="Create Custom Exercise">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
+
+          <div class="category-filters" id="muscle-filters-container">
+            <button class="filter-chip active" data-muscle="all">All</button>
+            <!-- Muscle filter chips dynamically populated -->
+          </div>
+
+          <div id="exercises-list" class="exercises-list-container">
+            <!-- Dynamic exercise items -->
+          </div>
+        </section>
+
+        <!-- 4. ANALYTICS VIEW -->
+        <section id="view-analytics" class="app-view">
+          <h1 class="view-title">Analytics</h1>
+          
+          <!-- Key Metrics Grid -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Completed Workouts</span>
+              <span id="stat-total-workouts" class="metric-value">0</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Active Streak</span>
+              <span id="stat-streak" class="metric-value">0 days</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Total Volume</span>
+              <span id="stat-total-volume" class="metric-value">0 lbs</span>
+            </div>
+          </div>
+
+          <!-- Workout Consistency Calendar -->
+          <div class="analytics-card activity-calendar-card">
+            <div class="card-header">
+              <h2>Workout Consistency</h2>
+              <div class="calendar-legend">
+                <span>Less</span>
+                <div class="legend-cell level-0"></div>
+                <div class="legend-cell level-1"></div>
+                <div class="legend-cell level-2"></div>
+                <div class="legend-cell level-3"></div>
+                <span>More</span>
+              </div>
+            </div>
+            <div class="activity-grid-wrapper">
+              <div id="activity-grid" class="activity-grid">
+                <!-- Dynamically generated days -->
+              </div>
+            </div>
+            <div id="activity-stats-text" class="activity-stats-text">
+              <!-- Dynamically populated consistency stats -->
+            </div>
+          </div>
+
+          <!-- Visual Muscle Heatmap -->
+          <div class="analytics-card" style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 16px; padding: 14px; margin-bottom: 20px;">
+            <div class="card-header" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <h2 style="font-family: var(--font-heading); font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin: 0;">Muscle Heatmap (Last 30 Days)</h2>
+              <span style="font-size: 0.72rem; color: var(--text-dark);">Density based on sets completed</span>
+            </div>
+            <div style="display: flex; justify-content: space-around; align-items: center; padding: 10px 0;">
+              <!-- Front Silhouette -->
+              <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">FRONT</span>
+                <svg id="heatmap-front" width="120" height="240" viewBox="0 0 100 200" style="background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.03);">
+                  <!-- Head -->
+                  <circle cx="50" cy="20" r="10" fill="#2d3748" />
+                  <!-- Neck -->
+                  <rect x="47" y="30" width="6" height="6" fill="#2d3748" />
+                  
+                  <!-- Chest -->
+                  <path id="muscle-chest" d="M38,38 L62,38 L62,56 L38,56 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Abs/Core -->
+                  <path id="muscle-core" d="M39,58 L61,58 L59,90 L41,90 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Shoulders -->
+                  <path id="muscle-shoulders-front-l" d="M26,38 C28,34 36,36 36,38 L36,48 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-shoulders-front-r" d="M74,38 C72,34 64,36 64,38 L64,48 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Arms (Front Biceps/Forearms) -->
+                  <path id="muscle-arms-front-l" d="M26,48 L32,48 L28,88 L22,88 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-arms-front-r" d="M74,48 L68,48 L72,88 L78,88 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Legs (Front Quads) -->
+                  <path id="muscle-legs-front-l" d="M22,94 L47,94 L45,145 L30,145 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-legs-front-r" d="M78,94 L53,94 L55,145 L70,145 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Calves Front -->
+                  <path id="muscle-calves-front-l" d="M30,148 L44,148 L40,190 L34,190 Z" fill="#2d3748" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+                  <path id="muscle-calves-front-r" d="M70,148 L56,148 L60,190 L66,190 Z" fill="#2d3748" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+                </svg>
+              </div>
+              
+              <!-- Back Silhouette -->
+              <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">BACK</span>
+                <svg id="heatmap-back" width="120" height="240" viewBox="0 0 100 200" style="background: rgba(0, 0, 0, 0.2); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.03);">
+                  <!-- Head -->
+                  <circle cx="50" cy="20" r="10" fill="#2d3748" />
+                  <!-- Neck -->
+                  <rect x="47" y="30" width="6" height="6" fill="#2d3748" />
+                  
+                  <!-- Back (Upper & Lower Back) -->
+                  <path id="muscle-back" d="M38,38 L62,38 L60,80 L40,80 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Glutes -->
+                  <path id="muscle-legs-back-glutes" d="M38,82 L62,82 L58,102 L42,102 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Shoulders Back -->
+                  <path id="muscle-shoulders-back-l" d="M26,38 C28,34 36,36 36,38 L36,48 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-shoulders-back-r" d="M74,38 C72,34 64,36 64,38 L64,48 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Arms (Back Triceps) -->
+                  <path id="muscle-arms-back-l" d="M26,48 L32,48 L28,88 L22,88 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-arms-back-r" d="M74,48 L68,48 L72,88 L78,88 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Legs (Back Hamstrings) -->
+                  <path id="muscle-legs-back-l" d="M22,104 L47,104 L45,155 L30,155 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-legs-back-r" d="M78,104 L53,104 L55,155 L70,155 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  
+                  <!-- Calves Back -->
+                  <path id="muscle-legs-back-calves-l" d="M30,158 L44,158 L40,192 L34,192 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                  <path id="muscle-legs-back-calves-r" d="M70,158 L56,158 L60,192 L66,192 Z" fill="#1b2436" stroke="rgba(255,255,255,0.03)" stroke-width="1" style="transition: fill 0.4s ease;" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Muscle Distribution Chart -->
+          <div class="chart-section" style="margin-bottom: 20px;">
+            <div class="chart-header">
+              <h2>Muscle Group Distribution</h2>
+            </div>
+            <div class="chart-wrapper" style="height: 200px; display: flex; justify-content: center; align-items: center; padding: 10px 0;">
+              <canvas id="muscle-distribution-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Charts Section -->
+          <div class="chart-section">
+            <div class="chart-header">
+              <h2>Performance Insights</h2>
+              <select id="select-chart-exercise" class="select-dropdown">
+                <!-- Populated with exercises that have history -->
+                <option value="">Select an Exercise</option>
+              </select>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="analytics-chart"></canvas>
+              <div id="chart-placeholder" class="chart-placeholder-text">
+                Log a workout with chest, back, or leg exercises to see progress trends.
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- 5. SETTINGS VIEW -->
+        <section id="view-settings" class="app-view">
+          <h1 class="view-title">Settings</h1>
+          
+          <div class="settings-group">
+            <h3>Profile</h3>
+            <div class="settings-profile-card">
+              <div class="profile-card-avatar">AB</div>
+              <div class="profile-card-info">
+                <span class="profile-card-name">Aditya</span>
+                <span class="profile-card-tier">Premium Active Member</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group" id="settings-cloud-group">
+            <h3>Cloud Sync</h3>
+            <div class="settings-row clickable" id="btn-cloud-account">
+              <div class="settings-row-text">
+                <span class="settings-label" id="cloud-account-label">Sign In to Sync</span>
+                <span class="settings-subtext" id="cloud-account-subtext">Access workouts on other devices</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="cloud" class="settings-row-icon" id="cloud-status-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+            
+            <div class="settings-row clickable hidden" id="btn-sync-now">
+              <div class="settings-row-text">
+                <span class="settings-label">Sync Now</span>
+                <span class="settings-subtext" id="last-sync-subtext">Last synced: Never</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="refresh-cw" class="settings-row-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-group">
+            <h3>Preferences</h3>
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <span class="settings-label">Weight Unit</span>
+                <span class="settings-subtext">Set standard units for logs</span>
+              </div>
+              <div class="toggle-switch-container">
+                <button id="btn-unit-lbs" class="toggle-btn active">lbs</button>
+                <button id="btn-unit-kg" class="toggle-btn">kg</button>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <span class="settings-label">Default Rest Duration</span>
+                <span class="settings-subtext">Default countdown seconds</span>
+              </div>
+              <select id="select-default-rest" class="select-dropdown">
+                <option value="30">30 seconds</option>
+                <option value="60">1 minute</option>
+                <option value="90" selected>1:30 minutes</option>
+                <option value="120">2 minutes</option>
+                <option value="180">3 minutes</option>
+                <option value="300">5 minutes</option>
+              </select>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <span class="settings-label">Rest Timer Notifications</span>
+                <span class="settings-subtext">Notify when countdown completes</span>
+              </div>
+              <div class="toggle-switch-container">
+                <button id="btn-notif-off" class="toggle-btn active">Off</button>
+                <button id="btn-notif-on" class="toggle-btn">On</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <h3>Data Backup</h3>
+            <div class="settings-row clickable" id="btn-export-data">
+              <div class="settings-row-text">
+                <span class="settings-label">Export Data</span>
+                <span class="settings-subtext">Save logs and templates to JSON</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="download" class="settings-row-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+            
+            <div class="settings-row clickable" id="btn-import-trigger">
+              <div class="settings-row-text">
+                <span class="settings-label">Import Data</span>
+                <span class="settings-subtext">Restore logs from a JSON file</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="upload" class="settings-row-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+            <input type="file" id="input-import-file" accept=".json" class="hidden">
+          </div>
+
+          <div class="settings-group">
+            <h3>Danger Zone</h3>
+            <div class="settings-row clickable danger" id="btn-reset-data">
+              <div class="settings-row-text">
+                <span class="settings-label">Reset Application Data</span>
+                <span class="settings-subtext">Permanently wipe all workouts and templates</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="trash-2" class="settings-row-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-footer">
+            <p>BeBig Workout Tracker v1.2 (Premium Unlocked)</p>
+            <p class="settings-subtext">Built by Antigravity</p>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- App Navigation Bar (Bottom Navigation) -->
+      <nav class="app-nav">
+        <button class="nav-item active" data-view="home">
+          <i data-lucide="home"></i>
+          <span>Home</span>
+        </button>
+        <button class="nav-item" data-view="workouts">
+          <i data-lucide="dumbbell"></i>
+          <span>Workouts</span>
+        </button>
+        <button class="nav-item" data-view="schedule">
+          <i data-lucide="calendar"></i>
+          <span>Schedule</span>
+        </button>
+        <button class="nav-item" data-view="history">
+          <i data-lucide="clock"></i>
+          <span>History</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <i data-lucide="user"></i>
+          <span>Profile</span>
+        </button>
+      </nav>
+    </main>
+  </div>
+
+  <!-- ACTIVE WORKOUT PANEL (SLIDE-UP SHEET) -->
+  <div id="workout-panel" class="workout-panel">
+    <div class="panel-header-bar">
+      <div class="panel-drag-handle"></div>
+    </div>
+    
+    <div class="panel-header">
+      <div class="panel-title-container">
+        <h2 id="workout-panel-title">Active Workout</h2>
+        <span id="workout-panel-timer">00:00:00</span>
+      </div>
+      <div class="panel-actions">
+        <button id="btn-minimize-workout" class="btn-icon-only-flat" title="Minimize">
+          <i data-lucide="chevron-down"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable Workout Content -->
+    <div class="workout-content" id="workout-panel-content">
+      <div class="workout-meta">
+        <input type="text" id="input-workout-name" placeholder="Workout Title" value="Evening Workout">
+        <input type="text" id="input-workout-notes" placeholder="Add notes (optional)..." value="">
+      </div>
+
+      <!-- Active Exercise List -->
+      <div id="active-exercises-list" class="active-exercises-container">
+        <!-- Dynmically rendered active exercises & sets -->
+      </div>
+
+      <!-- Active Workout Buttons -->
+      <div class="workout-control-buttons">
+        <button id="btn-add-exercise-to-workout" class="btn-primary-outline btn-full-width">
+          <i data-lucide="plus"></i> Add Exercise
+        </button>
+        <div class="workout-action-pair">
+          <button id="btn-cancel-workout" class="btn-danger-outline">Cancel Workout</button>
+          <button id="btn-finish-workout" class="btn-success">Finish Workout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MINI FLOATING ACTIVE WORKOUT BAR (Shows when workout is active but panel minimized) -->
+  <div id="mini-workout-bar" class="mini-workout-bar hidden">
+    <div class="mini-content">
+      <i data-lucide="dumbbell" class="pulse-icon"></i>
+      <div class="mini-details">
+        <span class="mini-title" id="mini-workout-title">Active Workout</span>
+        <span class="mini-timer" id="mini-workout-timer">00:00</span>
+      </div>
+    </div>
+    <div class="mini-actions">
+      <button id="btn-restore-workout" class="btn-mini-restore">
+        Open <i data-lucide="chevron-up"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- FLOATING REST TIMER OVERLAY -->
+  <div id="rest-timer-overlay" class="rest-timer-overlay hidden">
+    <div class="rest-timer-box">
+      <div class="rest-timer-header">
+        <span>Rest Timer</span>
+        <button id="btn-close-rest-timer" class="btn-close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="rest-timer-circle-container">
+        <svg class="timer-svg" viewBox="0 0 100 100">
+          <circle class="timer-circle-bg" cx="50" cy="50" r="45"></circle>
+          <circle class="timer-circle-fg" id="timer-progress-ring" cx="50" cy="50" r="45"></circle>
+        </svg>
+        <div class="rest-timer-text-container">
+          <span id="rest-countdown-text">01:30</span>
+          <span class="rest-label">seconds left</span>
+        </div>
+      </div>
+      <div class="rest-timer-adjusters">
+        <button id="btn-rest-sub30" class="btn-adjust">-30s</button>
+        <button id="btn-rest-skip" class="btn-adjust skip">Skip</button>
+        <button id="btn-rest-add30" class="btn-adjust">+30s</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EXERCISE SELECTOR -->
+  <div id="modal-exercise-selector" class="modal-overlay hidden">
+    <div class="modal-content drawer">
+      <div class="modal-header">
+        <h2>Add Exercise</h2>
+        <button class="btn-close-modal" id="btn-close-exercise-selector"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-search-bar search-container">
+        <i data-lucide="search" class="search-icon"></i>
+        <input type="text" id="input-modal-search" placeholder="Search exercises...">
+      </div>
+      
+      <div class="category-filters scrollable" id="modal-muscle-filters">
+        <button class="filter-chip active" data-muscle="all">All</button>
+        <!-- Dynamic filters -->
+      </div>
+      
+      <div class="modal-list scrollable" id="modal-exercises-list">
+        <!-- Dynamic exercises to select -->
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-confirm-exercises" class="btn-success btn-full-width">Add Selected (0)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: EXERCISE DETAILS / HISTORY -->
+  <div id="modal-exercise-details" class="modal-overlay hidden">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2 id="detail-exercise-name">Exercise Details</h2>
+        <button class="btn-close-modal" id="btn-close-exercise-details"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body scrollable">
+        <div class="exercise-detail-meta">
+          <span id="detail-exercise-muscle" class="badge">Muscle</span>
+          <span id="detail-exercise-category" class="badge secondary">Category</span>
+        </div>
+        
+        <div class="exercise-detail-section">
+          <h3>Instructions</h3>
+          <p id="detail-exercise-instructions" class="instruction-text">No instructions available.</p>
+        </div>
+
+        <div class="exercise-detail-section">
+          <h3>Personal Records</h3>
+          <div class="pr-details-grid">
+            <div class="pr-detail-card">
+              <span class="pr-card-label">1-Rep Max (Est.)</span>
+              <span id="detail-pr-1rm" class="pr-card-value">-</span>
+            </div>
+            <div class="pr-detail-card">
+              <span class="pr-card-label">Max Weight</span>
+              <span id="detail-pr-weight" class="pr-card-value">-</span>
+            </div>
+            <div class="pr-detail-card">
+              <span class="pr-card-label">Max Volume</span>
+              <span id="detail-pr-volume" class="pr-card-value">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="exercise-detail-section">
+          <h3>Exercise History</h3>
+          <div id="detail-exercise-history-list" class="detail-history-list">
+            <!-- Dynamic personal exercise history list -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TEMPLATE EDITOR -->
+  <div id="modal-template-editor" class="modal-overlay hidden">
+    <div class="modal-content drawer">
+      <div class="modal-header">
+        <h2 id="template-editor-title">Create Template</h2>
+        <button class="btn-close-modal" id="btn-close-template-editor"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body scrollable">
+        <div class="workout-meta">
+          <input type="text" id="input-template-name" placeholder="Template Name (e.g., Push Day)" value="">
+          <textarea id="input-template-notes" placeholder="Notes (e.g., Focus on progressive overload)" rows="2"></textarea>
+        </div>
+        <div id="template-target-muscles-summary" class="template-summary-bar"></div>
+
+        <div id="template-exercises-list" class="active-exercises-container">
+          <!-- Dynamic template exercises list -->
+          <p class="empty-state-text padding-2">Add exercises to this template to get started.</p>
+        </div>
+
+        <div class="template-controls">
+          <button id="btn-add-exercise-to-template" class="btn-primary-outline btn-full-width">
+            <i data-lucide="plus"></i> Add Exercise
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-delete-template-editor" class="btn-danger-outline hidden">Delete Template</button>
+        <button id="btn-save-template" class="btn-success btn-full-width">Save Template</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: BARBELL PLATE CALCULATOR (Premium Feature) -->
+  <div id="modal-plate-calculator" class="modal-overlay hidden">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2>Plate Calculator</h2>
+        <button class="btn-close-modal" id="btn-close-plate-calculator"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">Calculate which plates to load on each side of the barbell for your target weight.</p>
+        
+        <div class="calc-row">
+          <label for="input-target-weight">Target Weight (<span class="current-unit-text">lbs</span>):</label>
+          <div class="calc-input-wrapper">
+            <button id="btn-calc-sub-5" class="btn-step-val">-5</button>
+            <input type="number" id="input-target-weight" min="45" step="5" value="135">
+            <button id="btn-calc-add-5" class="btn-step-val">+5</button>
+          </div>
+        </div>
+
+        <div class="calc-row">
+          <label for="select-bar-weight">Barbell Weight (<span class="current-unit-text">lbs</span>):</label>
+          <select id="select-bar-weight" class="select-dropdown">
+            <!-- Values dynamically loaded based on unit (45/20) -->
+            <option value="45">Standard Barbell (45 lbs)</option>
+            <option value="35">Women's Barbell (35 lbs)</option>
+            <option value="15">Technique Bar (15 lbs)</option>
+          </select>
+        </div>
+
+        <div class="plates-result-container">
+          <h4>Plates per side (each side):</h4>
+          <div id="plates-visual-list" class="plates-visual-grid">
+            <!-- Plate graphics rendering here -->
+          </div>
+        </div>
+
+        <div class="plates-info-badge">
+          <span>Remaining: <strong id="calc-weight-remainder">0</strong> <span class="current-unit-text">lbs</span></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-apply-calc-weight" class="btn-success btn-full-width">Use Target Weight</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CREATE CUSTOM EXERCISE -->
+  <div id="modal-create-exercise" class="modal-overlay hidden">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2>New Exercise</h2>
+        <button class="btn-close-modal" id="btn-close-create-exercise"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="input-custom-exercise-name">Exercise Name</label>
+          <input type="text" id="input-custom-exercise-name" placeholder="e.g., Incline Hammer Dumbbell Press">
+        </div>
+        
+        <div class="form-group">
+          <label for="select-custom-exercise-muscle">Primary Muscle Group</label>
+          <select id="select-custom-exercise-muscle" class="select-dropdown">
+            <!-- Muscle categories populated dynamically -->
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-custom-exercise-category">Category</label>
+          <select id="select-custom-exercise-category" class="select-dropdown">
+            <option value="Barbell">Barbell</option>
+            <option value="Dumbbell">Dumbbell</option>
+            <option value="Machine">Machine</option>
+            <option value="Bodyweight">Bodyweight / Calisthenics</option>
+            <option value="Cardio">Cardio / Endurance</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="input-custom-exercise-instructions">Instructions (Optional)</label>
+          <textarea id="input-custom-exercise-instructions" placeholder="Write steps on how to execute the lift..." rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-custom-exercise" class="btn-success btn-full-width">Create Exercise</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CLOUD AUTH (Login / Signup) -->
+  <div id="modal-cloud-auth" class="modal-overlay hidden">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2 id="auth-modal-title">Cloud Account</h2>
+        <button class="btn-close-modal" id="btn-close-cloud-auth"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <!-- Tabs for Login/Signup -->
+        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 16px;">
+          <button id="btn-tab-login" class="toggle-btn active" style="width: 50%;">Login</button>
+          <button id="btn-tab-signup" class="toggle-btn" style="width: 50%;">Sign Up</button>
+        </div>
+
+        <div id="auth-error-msg" class="empty-state-text hidden" style="color: var(--color-danger); padding: 5px 0 12px 0; text-align: left; font-weight: 500;"></div>
+
+        <div class="form-group">
+          <label for="input-auth-email">Email Address</label>
+          <input type="text" id="input-auth-email" placeholder="e.g. aditya@gmail.com">
+        </div>
+        
+        <div class="form-group">
+          <label for="input-auth-password">Password</label>
+          <input type="password" id="input-auth-password" placeholder="Min 6 characters">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-auth-submit" class="btn-success btn-full-width">Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LOG WEIGHT -->
+  <div id="modal-log-weight" class="modal-overlay hidden">
+    <div class="modal-content standard">
+      <div class="modal-header">
+        <h2>Log Weight</h2>
+        <button class="btn-close-modal" id="btn-close-log-weight"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">Log your body weight to track your physical progress over time.</p>
+        <div class="form-group">
+          <label for="input-log-weight-value">Body Weight (<span class="current-unit-text">lbs</span>)</label>
+          <input type="number" id="input-log-weight-value" placeholder="e.g. 165" step="0.1" min="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-weight" class="btn-success btn-full-width">Save Weight</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SCHEDULE PICKER -->
+  <div id="modal-schedule-picker" class="modal-overlay hidden">
+    <div class="modal-content drawer">
+      <div class="modal-header">
+        <h2 id="schedule-picker-title">Schedule Workout</h2>
+        <button class="btn-close-modal" id="btn-close-schedule-picker"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body scrollable">
+        <p class="modal-description" id="schedule-picker-day-desc">Select a template to schedule:</p>
+        <div id="schedule-templates-list" class="templates-grid padding-bottom-2">
+          <!-- Dynamic templates list -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-set-recovery-day" class="btn-danger-outline btn-full-width">Set as Recovery/Rest Day</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lucide Script & Chart.js -->
+  <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Application JS Code -->
+  <script src="app.js"></script>
+</body>
+</html>

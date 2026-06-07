@@ -1,0 +1,16 @@
+name = "bebig-backend"
+main = "src/index.ts"
+compatibility_date = "2024-11-12"
+
+[vars]
+# Add environment variables if needed
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "bebig-sessions-kv"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bebig-db"
+database_id = "bebig-db-uuid"
+migrations_dir = "migrations"
