@@ -2445,10 +2445,31 @@ html, body {
   background: radial-gradient(circle, rgba(212, 252, 52, 0.1) 0%, transparent 70%);
   pointer-events: none;
 }
+.hero-card-watermark {
+  position: absolute;
+  bottom: -45px;
+  right: -15px;
+  width: 140px;
+  height: 140px;
+  opacity: 0.1; /* Soft and elegant backdrop, 100% readable */
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-card-watermark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: contrast(1.1) brightness(1.2);
+}
 .hero-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 2; /* Stacks text and avatar safely above watermark */
 }
 .greeting-text-container h1 {
   font-family: var(--font-heading);
