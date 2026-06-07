@@ -167,14 +167,28 @@ html, body {
   font-family: var(--font-heading);
   font-weight: 800;
   font-size: 1.55rem;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.6px;
+  display: flex;
+  align-items: center;
+  cursor: default;
 }
 .logo-accent {
-  color: var(--color-primary);
-  text-shadow: 0 0 15px rgba(16, 185, 129, 0.35);
-  background: linear-gradient(135deg, var(--color-primary) 30%, #00f2fe 100%);
+  background: linear-gradient(135deg, #d4fc34 0%, #10b981 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-weight: 800;
+}
+.logo-light {
+  color: var(--text-main);
+  font-weight: 300 !important;
+  opacity: 0.95;
+  margin-left: 1px;
+}
+.app-logo-icon {
+  transition: transform var(--transition-smooth);
+}
+.header-logo:hover .app-logo-icon {
+  transform: rotate(15deg) scale(1.08);
 }
 
 .active-timer-widget {
