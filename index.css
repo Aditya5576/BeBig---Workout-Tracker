@@ -149,19 +149,25 @@ html, body {
   gap: 10px;
 }
 .profile-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-primary) 0%, #00f2fe 100%);
   color: white;
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all var(--transition-smooth);
+  cursor: pointer;
+}
+.profile-avatar:hover {
+  box-shadow: 0 0 15px var(--color-primary);
+  transform: scale(1.05);
 }
 .header-logo {
   font-family: var(--font-heading);
