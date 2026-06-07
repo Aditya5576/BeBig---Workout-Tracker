@@ -7,10 +7,10 @@ compatibility_date = "2024-11-12"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "bebig-sessions-kv"
+id = "f1e89a02b6264c2e9cf57b6adb46c010"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "bebig-db"
-database_id = "bebig-db-uuid"
+database_id = "f93adfcc-7247-462c-9d61-3e759dba2244"
 migrations_dir = "migrations"
