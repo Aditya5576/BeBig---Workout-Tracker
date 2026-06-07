@@ -639,9 +639,9 @@ const Analytics = {
 
     const getHeatmapColor = (sets) => {
       if (sets === 0) return "#1b2436";
-      if (sets <= 3) return "rgba(59, 130, 246, 0.35)";
-      if (sets <= 8) return "rgba(59, 130, 246, 0.75)";
-      return "#00f2fe"; // Neon glowing cyan
+      if (sets <= 3) return "rgba(16, 185, 129, 0.35)";
+      if (sets <= 8) return "rgba(16, 185, 129, 0.75)";
+      return "#d4fc34"; // Neon glowing cyan
     };
 
     const setFill = (id, color) => {
@@ -796,8 +796,8 @@ const Analytics = {
           {
             label: `Estimated 1RM (${state.settings.unit})`,
             data: oneRMData,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderColor: '#d4fc34',
+            backgroundColor: 'rgba(212, 252, 52, 0.08)',
             tension: 0.2,
             borderWidth: 2,
             yAxisID: 'y1',
@@ -1414,17 +1414,18 @@ function renderHomeView() {
     }
   }
 
-  // Update profile avatar
-  const avatar = document.getElementById("home-profile-avatar");
-  if (avatar) {
-    if (state.settings.profilePhoto) {
-      avatar.innerHTML = `<img src="${state.settings.profilePhoto}" alt="Avatar">`;
+  // Update profile avatars globally (home, header, settings)
+  const hasPhoto = !!state.settings.profilePhoto;
+  const emailName = state.auth.email ? state.auth.email.split('@')[0] : "Adi";
+  const initials = emailName.slice(0, 2).toUpperCase();
+  
+  document.querySelectorAll("#home-profile-avatar, .app-header .profile-avatar, .profile-card-avatar").forEach(el => {
+    if (hasPhoto) {
+      el.innerHTML = `<img src="${state.settings.profilePhoto}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
     } else {
-      const emailName = state.auth.email ? state.auth.email.split('@')[0] : "Adi";
-      const initials = emailName.slice(0, 2).toUpperCase();
-      avatar.innerHTML = `<span id="home-avatar-initials">${initials}</span>`;
+      el.innerHTML = `<span id="home-avatar-initials" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-weight: 700;">${initials}</span>`;
     }
-  }
+  });
 
   // Update Greeting title & Motivation Quote
   const greetingTitle = document.getElementById("home-greeting-title");
@@ -2870,7 +2871,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const homeBtnStart = document.getElementById("home-btn-start-workout");
   if (homeBtnStart) {
     homeBtnStart.addEventListener("click", () => {
-      startWorkoutSession();
+      switchView("workouts");
     });
   }
 
@@ -2915,15 +2916,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Choose profile photo from gallery via file input
+  const fileInputPhoto = document.getElementById("input-profile-photo");
+  const handlePhotoChoose = () => {
+    if (fileInputPhoto) fileInputPhoto.click();
+  };
+
   const bannerAdd = document.getElementById("btn-banner-add");
   if (bannerAdd) {
-    bannerAdd.addEventListener("click", () => {
-      const url = prompt("Enter profile image URL:");
-      if (url) {
-        state.settings.profilePhoto = url;
+    bannerAdd.addEventListener("click", handlePhotoChoose);
+  }
+
+  // Bind photo upload clicks to all avatar circles
+  document.querySelectorAll("#home-profile-avatar, .app-header .profile-avatar, .profile-card-avatar").forEach(el => {
+    el.style.cursor = "pointer";
+    el.addEventListener("click", handlePhotoChoose);
+  });
+
+  if (fileInputPhoto) {
+    fileInputPhoto.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        state.settings.profilePhoto = evt.target.result; // Base64 data URL
         saveAllState();
         renderHomeView();
-      }
+      };
+      reader.readAsDataURL(file);
     });
   }
 

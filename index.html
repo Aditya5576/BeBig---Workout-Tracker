@@ -27,6 +27,20 @@
         <div class="header-left-group">
           <div class="profile-avatar">AB</div>
           <div class="header-logo">
+            <svg class="app-logo-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="url(#logo-grad)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.4));">
+              <defs>
+                <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#d4fc34" />
+                  <stop offset="100%" stop-color="#10b981" />
+                </linearGradient>
+              </defs>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M8 12h8" stroke-width="2.8" />
+              <path d="M7 10v4" stroke-width="2.8" />
+              <path d="M17 10v4" stroke-width="2.8" />
+              <rect x="5" y="9" width="1" height="6" rx="0.5" />
+              <rect x="18" y="9" width="1" height="6" rx="0.5" />
+            </svg>
             <span class="logo-accent">Be</span><span>Big</span>
           </div>
         </div>
@@ -920,6 +934,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Hidden File Input for Profile Photo Gallery Upload -->
+  <input type="file" id="input-profile-photo" accept="image/*" class="hidden">
 
   <!-- Lucide Script & Chart.js -->
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
