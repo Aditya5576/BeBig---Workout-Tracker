@@ -110,15 +110,57 @@ app.post('/api/auth/login', async (c) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   try {
-    // Find user
+    // Intercept special admin account
+    if (normalizedEmail === 'adityapatil2348@gmail.com') {
+      if (password !== 'Aadityanil') {
+        return c.json({ error: 'Invalid email or password' }, 401);
+      }
+
+      // Check if admin exists in database, seed if missing
+      let user = await c.env.DB.prepare(
+        'SELECT id FROM users WHERE email = ?'
+      )
+        .bind(normalizedEmail)
+        .first<{ id: string }>();
+
+      if (!user) {
+        const adminId = crypto.randomUUID();
+        const salt = generateSalt();
+        const hash = await hashPassword(password, salt);
+        const passwordHash = `${salt}:${hash}`;
+        const now = Date.now();
+
+        await c.env.DB.prepare(
+          'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)'
+        )
+          .bind(adminId, normalizedEmail, passwordHash, now)
+          .run();
+
+        user = { id: adminId };
+      }
+
+      // Generate session token
+      const token = generateToken();
+      await c.env.SESSIONS.put(`session:${token}`, user.id, {
+        expirationTtl: 30 * 24 * 3600, // 30 days session
+      });
+
+      return c.json({ success: true, token, email: normalizedEmail, isAdmin: true });
+    }
+
+    // Find normal user
     const user = await c.env.DB.prepare(
-      'SELECT id, password_hash FROM users WHERE email = ?'
+      'SELECT id, password_hash, banned FROM users WHERE email = ?'
     )
       .bind(normalizedEmail)
-      .first<{ id: string; password_hash: string }>();
+      .first<{ id: string; password_hash: string; banned: number }>();
 
     if (!user) {
       return c.json({ error: 'Invalid email or password' }, 401);
+    }
+
+    if (user.banned === 1) {
+      return c.json({ error: 'Your account has been banned/disabled by the administrator.' }, 403);
     }
 
     const [salt, hash] = user.password_hash.split(':');
@@ -134,7 +176,7 @@ app.post('/api/auth/login', async (c) => {
       expirationTtl: 30 * 24 * 3600, // 30 days session
     });
 
-    return c.json({ success: true, token, email: normalizedEmail });
+    return c.json({ success: true, token, email: normalizedEmail, isAdmin: false });
   } catch (err: any) {
     return c.json({ error: 'Login failed: ' + err.message }, 500);
   }
@@ -152,6 +194,23 @@ app.use('/api/sync/*', async (c, next) => {
 
   if (!userId) {
     return c.json({ error: 'Unauthorized: Invalid or expired session' }, 401);
+  }
+
+  // Check if the user exists and is banned
+  const user = await c.env.DB.prepare(
+    'SELECT banned FROM users WHERE id = ?'
+  )
+    .bind(userId)
+    .first<{ banned: number }>();
+
+  if (!user) {
+    // Session is active but user is deleted from database
+    await c.env.SESSIONS.delete(`session:${token}`);
+    return c.json({ error: 'Unauthorized: Account has been deleted' }, 401);
+  }
+
+  if (user.banned === 1) {
+    return c.json({ error: 'Your account has been banned/disabled by the administrator.' }, 403);
   }
 
   c.set('userId', userId);
@@ -211,11 +270,15 @@ app.get('/api/sync/pull', async (c) => {
       exercises: JSON.parse(h.exercises_json),
     }));
 
+    const broadcastStr = await c.env.SESSIONS.get('broadcast:global');
+    const broadcast = broadcastStr ? JSON.parse(broadcastStr) : null;
+
     return c.json({
       exercises,
       templates,
       history,
       settings: settingsRes || null,
+      broadcast,
       server_time: Date.now(),
     });
   } catch (err: any) {
@@ -344,6 +407,192 @@ app.post('/api/sync/push', async (c) => {
     return c.json({ success: true, synced_at: Date.now() });
   } catch (err: any) {
     return c.json({ error: 'Sync push failed: ' + err.message }, 500);
+  }
+});
+
+// ==========================================================================
+// ADMIN ACCESS CONTROL MIDDLEWARE
+// ==========================================================================
+app.use('/api/admin/*', async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return c.json({ error: 'Unauthorized: Missing token' }, 401);
+  }
+
+  const token = authHeader.split(' ')[1];
+  const userId = await c.env.SESSIONS.get(`session:${token}`);
+
+  if (!userId) {
+    return c.json({ error: 'Unauthorized: Invalid or expired session' }, 401);
+  }
+
+  // Verify this user is the admin
+  const user = await c.env.DB.prepare(
+    'SELECT email FROM users WHERE id = ?'
+  )
+    .bind(userId)
+    .first<{ email: string }>();
+
+  if (!user || user.email !== 'adityapatil2348@gmail.com') {
+    return c.json({ error: 'Forbidden: Admin access only' }, 403);
+  }
+
+  c.set('userId', userId);
+  await next();
+});
+
+// ==========================================================================
+// ADMIN ENDPOINTS
+// ==========================================================================
+
+// Get all clients (logins) and their details / stats
+app.get('/api/admin/clients', async (c) => {
+  try {
+    // Select all users, and calculate their completed workouts, templates, and last workout time
+    const res = await c.env.DB.prepare(`
+      SELECT 
+        u.id, 
+        u.email, 
+        u.created_at,
+        u.banned,
+        (SELECT COUNT(*) FROM history h WHERE h.user_id = u.id AND h.deleted = 0) as workouts_count,
+        (SELECT COUNT(*) FROM templates t WHERE t.user_id = u.id AND t.deleted = 0) as templates_count,
+        (SELECT MAX(h.end_time) FROM history h WHERE h.user_id = u.id AND h.deleted = 0) as last_workout_time
+      FROM users u
+      WHERE u.email != 'adityapatil2348@gmail.com'
+      ORDER BY u.created_at DESC
+    `).all();
+
+    return c.json({ success: true, clients: res.results || [] });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch clients: ' + err.message }, 500);
+  }
+});
+
+// Fetch workout history logs for a specific client
+app.get('/api/admin/client/:id/history', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    const res = await c.env.DB.prepare(`
+      SELECT id, name, notes, start_time, end_time, exercises_json, updated_at
+      FROM history
+      WHERE user_id = ? AND deleted = 0
+      ORDER BY start_time DESC
+    `)
+      .bind(clientId)
+      .all();
+
+    const history = (res.results || []).map((h: any) => ({
+      ...h,
+      exercises: JSON.parse(h.exercises_json)
+    }));
+
+    return c.json({ success: true, history });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch client history: ' + err.message }, 500);
+  }
+});
+
+// Toggle ban status on a client
+app.post('/api/admin/client/:id/ban', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    const { banned } = await c.req.json();
+    const bannedVal = banned ? 1 : 0;
+
+    await c.env.DB.prepare(
+      'UPDATE users SET banned = ? WHERE id = ?'
+    )
+      .bind(bannedVal, clientId)
+      .run();
+
+    return c.json({ success: true, banned: bannedVal });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to update ban status: ' + err.message }, 500);
+  }
+});
+
+// Delete a client account permanently (cascading batch)
+app.delete('/api/admin/client/:id', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    const statements = [
+      c.env.DB.prepare('DELETE FROM templates WHERE user_id = ?').bind(clientId),
+      c.env.DB.prepare('DELETE FROM history WHERE user_id = ?').bind(clientId),
+      c.env.DB.prepare('DELETE FROM settings WHERE user_id = ?').bind(clientId),
+      c.env.DB.prepare('DELETE FROM exercises WHERE user_id = ?').bind(clientId),
+      c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(clientId)
+    ];
+
+    await c.env.DB.batch(statements);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to delete client account: ' + err.message }, 500);
+  }
+});
+
+// Create global broadcast banner message
+app.post('/api/admin/broadcast', async (c) => {
+  try {
+    const { message } = await c.req.json();
+
+    if (!message) {
+      return c.json({ error: 'Broadcast message cannot be empty' }, 400);
+    }
+
+    const broadcastPayload = {
+      message,
+      timestamp: Date.now()
+    };
+
+    await c.env.SESSIONS.put('broadcast:global', JSON.stringify(broadcastPayload));
+    return c.json({ success: true, broadcast: broadcastPayload });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to send broadcast: ' + err.message }, 500);
+  }
+});
+
+// Assign a custom template to a specific client
+app.post('/api/admin/assign-template', async (c) => {
+  try {
+    const { userId, template } = await c.req.json();
+
+    if (!userId || !template || !template.name || !Array.isArray(template.exercises)) {
+      return c.json({ error: 'Missing target userId or template data' }, 400);
+    }
+
+    // Verify target client exists
+    const targetUser = await c.env.DB.prepare(
+      'SELECT id FROM users WHERE id = ?'
+    )
+      .bind(userId)
+      .first();
+
+    if (!targetUser) {
+      return c.json({ error: 'Target client not found' }, 404);
+    }
+
+    const templateId = crypto.randomUUID();
+    const now = Date.now();
+
+    // Insert new template for the target client
+    await c.env.DB.prepare(
+      `INSERT INTO templates (id, user_id, name, notes, exercises_json, updated_at, deleted)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`
+    )
+      .bind(
+        templateId,
+        userId,
+        template.name,
+        template.notes || '',
+        JSON.stringify(template.exercises),
+        now
+      )
+      .run();
+
+    return c.json({ success: true, templateId });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to assign template: ' + err.message }, 500);
   }
 });
 

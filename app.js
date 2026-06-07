@@ -144,7 +144,7 @@ function initStore() {
   state.history = store.get("history", []);
   state.activeWorkout = store.get("activeWorkout", null);
   state.settings = store.get("settings", { unit: "lbs", defaultRest: 90, notificationsEnabled: false });
-  state.auth = store.get("auth", { email: null, token: null, lastSyncTime: 0 });
+  state.auth = store.get("auth", { email: null, token: null, lastSyncTime: 0, isAdmin: false });
   state.schedule = store.get("bebig_schedule", {
     "Mon": null,
     "Tue": null,
@@ -2775,13 +2775,20 @@ function switchView(viewName) {
   });
 
   // Trigger view renderers
-  if (viewName === "home") renderHomeView();
-  else if (viewName === "workouts") renderStartView();
+  if (viewName === "home") {
+    renderHomeView();
+    if (state.auth && state.auth.token) syncData();
+  }
+  else if (viewName === "workouts") {
+    renderStartView();
+    if (state.auth && state.auth.token) syncData();
+  }
   else if (viewName === "schedule") renderScheduleView();
   else if (viewName === "history") renderHistoryView();
   else if (viewName === "exercises") renderExercisesView();
   else if (viewName === "analytics") Analytics.calculateAllStats();
   else if (viewName === "settings") loadSettingsView();
+  else if (viewName === "admin") renderAdminView();
 }
 
 function loadSettingsView() {
@@ -2797,6 +2804,59 @@ function loadSettingsView() {
   const notifEnabled = state.settings.notificationsEnabled === true;
   document.getElementById("btn-notif-on").classList.toggle("active", notifEnabled);
   document.getElementById("btn-notif-off").classList.toggle("active", !notifEnabled);
+
+  // Update Profile details dynamically if logged in
+  const profileCardName = document.querySelector(".profile-card-name");
+  const profileCardTier = document.querySelector(".profile-card-tier");
+  const profileCardAvatar = document.querySelector(".profile-card-avatar");
+
+  if (state.auth && state.auth.email) {
+    profileCardName.textContent = state.auth.email.split("@")[0].toUpperCase();
+    if (state.auth.isAdmin) {
+      profileCardTier.textContent = "🛡️ System Administrator";
+      profileCardAvatar.textContent = "AD";
+      profileCardAvatar.style.background = "linear-gradient(135deg, #d4fc34 0%, #10b981 100%)";
+    } else {
+      profileCardTier.textContent = "Premium Active Member";
+      profileCardAvatar.textContent = state.auth.email.substring(0, 2).toUpperCase();
+      profileCardAvatar.style.background = "";
+    }
+  } else {
+    profileCardName.textContent = "Offline Athlete";
+    profileCardTier.textContent = "Guest Mode / Local Sync Only";
+    profileCardAvatar.textContent = "G";
+    profileCardAvatar.style.background = "";
+  }
+
+  // Render Admin Portal card if admin
+  const adminContainer = document.getElementById("admin-portal-link-container");
+  if (adminContainer) {
+    if (state.auth && state.auth.isAdmin) {
+      adminContainer.innerHTML = `
+        <div class="admin-portal-link-card" id="btn-goto-admin">
+          <div class="admin-portal-link-info">
+            <div class="admin-portal-link-icon">
+              <i data-lucide="shield-alert" style="width:20px; height:20px;"></i>
+            </div>
+            <div class="admin-portal-link-text">
+              <h4>Admin Dashboard</h4>
+              <p>Manage clients and routines</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" style="color:var(--text-dark); width:18px; height:18px;"></i>
+        </div>
+      `;
+      // Re-run lucide icons rendering
+      if (window.lucide) window.lucide.createIcons();
+      
+      // Bind click
+      document.getElementById("btn-goto-admin").addEventListener("click", () => {
+        switchView("admin");
+      });
+    } else {
+      adminContainer.innerHTML = "";
+    }
+  }
 }
 
 // ==========================================================================
@@ -2867,6 +2927,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Render current view
   renderHomeView();
 
+  // Auto-sync remote updates on startup
+  if (state.auth && state.auth.token) {
+    syncData();
+  }
+
+  // Run the premium splash screen sequence
+  runSplashLoadingSequence();
   // --- HOME VIEW BINDINGS ---
   const homeBtnStart = document.getElementById("home-btn-start-workout");
   if (homeBtnStart) {
@@ -3394,6 +3461,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const btnAuthGuest = document.getElementById("btn-auth-guest");
+  if (btnAuthGuest) {
+    btnAuthGuest.addEventListener("click", () => {
+      document.getElementById("modal-cloud-auth").classList.add("hidden");
+    });
+  }
+
   const btnTabLogin = document.getElementById("btn-tab-login");
   const btnTabSignup = document.getElementById("btn-tab-signup");
   if (btnTabLogin) {
@@ -3450,6 +3524,115 @@ document.addEventListener("DOMContentLoaded", () => {
       btnNotifOn.classList.remove("active");
       state.settings.updated_at = Date.now();
       saveAllState();
+    });
+  }
+
+  // --- ADMIN PORTAL BINDINGS ---
+  const btnAdminBack = document.getElementById("btn-admin-back");
+  if (btnAdminBack) {
+    btnAdminBack.addEventListener("click", () => switchView("settings"));
+  }
+
+  const btnCloseAdminDetail = document.getElementById("btn-close-admin-detail");
+  if (btnCloseAdminDetail) {
+    btnCloseAdminDetail.addEventListener("click", () => {
+      document.getElementById("modal-admin-client-detail").classList.add("hidden");
+    });
+  }
+
+  const inputAdminSearch = document.getElementById("input-admin-client-search");
+  if (inputAdminSearch) {
+    inputAdminSearch.addEventListener("input", (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const filtered = adminClients.filter(c => c.email.toLowerCase().includes(q));
+      renderAdminClientsList(filtered);
+    });
+  }
+
+  const selectAdminBlueprint = document.getElementById("admin-assign-template-select");
+  if (selectAdminBlueprint) {
+    selectAdminBlueprint.addEventListener("change", handleAdminBlueprintChange);
+  }
+
+  const btnAdminAddExercise = document.getElementById("btn-admin-add-exercise");
+  if (btnAdminAddExercise) {
+    btnAdminAddExercise.addEventListener("click", () => {
+      openExerciseSelector((selectedExerciseIds) => {
+        selectedExerciseIds.forEach(id => {
+          if (!adminBuilderWorkout.exercises.some(ex => ex.exerciseId === id)) {
+            adminBuilderWorkout.exercises.push({
+              exerciseId: id,
+              sets: [{ type: "N", weight: 135, reps: 8 }]
+            });
+          }
+        });
+        renderAdminBuilderExercises();
+      });
+    });
+  }
+
+  const btnAdminAssignSubmit = document.getElementById("btn-admin-assign-submit");
+  if (btnAdminAssignSubmit) {
+    btnAdminAssignSubmit.addEventListener("click", submitAdminAssignTemplate);
+  }
+
+  // Admin Client Detail Modal Tabs
+  const btnAdminTabAssign = document.getElementById("btn-admin-tab-assign");
+  const btnAdminTabLogs = document.getElementById("btn-admin-tab-logs");
+  const adminDetailAssignSection = document.getElementById("admin-detail-assign-section");
+  const adminDetailLogsSection = document.getElementById("admin-detail-logs-section");
+  const adminDetailFooter = document.getElementById("admin-detail-footer");
+
+  if (btnAdminTabAssign && btnAdminTabLogs) {
+    btnAdminTabAssign.addEventListener("click", () => {
+      btnAdminTabAssign.classList.add("active");
+      btnAdminTabLogs.classList.remove("active");
+      if (adminDetailAssignSection) adminDetailAssignSection.classList.remove("hidden");
+      if (adminDetailLogsSection) adminDetailLogsSection.classList.add("hidden");
+      if (adminDetailFooter) adminDetailFooter.classList.remove("hidden");
+    });
+
+    btnAdminTabLogs.addEventListener("click", () => {
+      btnAdminTabLogs.classList.add("active");
+      btnAdminTabAssign.classList.remove("active");
+      if (adminDetailAssignSection) adminDetailAssignSection.classList.add("hidden");
+      if (adminDetailLogsSection) adminDetailLogsSection.classList.remove("hidden");
+      if (adminDetailFooter) adminDetailFooter.classList.add("hidden");
+      if (selectedAdminClient) {
+        loadAdminClientHistoryLogs(selectedAdminClient.id);
+      }
+    });
+  }
+
+  // Admin Client Danger Zone Actions
+  const btnAdminBanClient = document.getElementById("btn-admin-ban-client");
+  if (btnAdminBanClient) {
+    btnAdminBanClient.addEventListener("click", toggleBanClient);
+  }
+
+  const btnAdminDeleteClient = document.getElementById("btn-admin-delete-client");
+  if (btnAdminDeleteClient) {
+    btnAdminDeleteClient.addEventListener("click", deleteClientAccount);
+  }
+
+  // Admin Broadcast Announcement Trigger
+  const btnAdminBroadcastSubmit = document.getElementById("btn-admin-broadcast-submit");
+  if (btnAdminBroadcastSubmit) {
+    btnAdminBroadcastSubmit.addEventListener("click", submitGlobalBroadcast);
+  }
+
+  // Client Broadcast Announcement Acknowledgment
+  const btnAcknowledgeBroadcast = document.getElementById("btn-acknowledge-broadcast");
+  if (btnAcknowledgeBroadcast) {
+    btnAcknowledgeBroadcast.addEventListener("click", () => {
+      document.getElementById("modal-broadcast-announcement").classList.add("hidden");
+    });
+  }
+
+  const btnCloseBroadcast = document.getElementById("btn-close-broadcast");
+  if (btnCloseBroadcast) {
+    btnCloseBroadcast.addEventListener("click", () => {
+      document.getElementById("modal-broadcast-announcement").classList.add("hidden");
     });
   }
 
@@ -3544,6 +3727,14 @@ async function syncData() {
           settings: settingsToPush
         })
       });
+      if (pushRes.status === 403) {
+        handleBannedUserLogout("🚫 Access Blocked: Your account has been banned/disabled by the administrator.");
+        return;
+      }
+      if (pushRes.status === 401) {
+        handleBannedUserLogout("🔒 Session Expired: Your account has been deleted or your session has expired. Please log in again.");
+        return;
+      }
       if (!pushRes.ok) {
         throw new Error("Push sync failed");
       }
@@ -3556,11 +3747,41 @@ async function syncData() {
         "Authorization": `Bearer ${state.auth.token}`
       }
     });
+    if (pullRes.status === 403) {
+      handleBannedUserLogout("🚫 Access Blocked: Your account has been banned/disabled by the administrator.");
+      return;
+    }
+    if (pullRes.status === 401) {
+      handleBannedUserLogout("🔒 Session Expired: Your account has been deleted or your session has expired. Please log in again.");
+      return;
+    }
     if (!pullRes.ok) {
       throw new Error("Pull sync failed");
     }
 
     const remoteData = await pullRes.json();
+
+    // Check for global broadcast announcement
+    if (remoteData.broadcast && remoteData.broadcast.timestamp) {
+      const lastBroadcast = state.settings.lastBroadcastTimestamp || 0;
+      if (remoteData.broadcast.timestamp > lastBroadcast) {
+        state.settings.lastBroadcastTimestamp = remoteData.broadcast.timestamp;
+        saveAllState();
+
+        const broadcastModal = document.getElementById("modal-broadcast-announcement");
+        const broadcastMsgText = document.getElementById("broadcast-message-text");
+        const broadcastTimeText = document.getElementById("broadcast-timestamp-text");
+        
+        if (broadcastModal && broadcastMsgText) {
+          broadcastMsgText.textContent = remoteData.broadcast.message;
+          if (broadcastTimeText) {
+            const dateStr = new Date(remoteData.broadcast.timestamp).toLocaleString();
+            broadcastTimeText.textContent = `Sent: ${dateStr}`;
+          }
+          broadcastModal.classList.remove("hidden");
+        }
+      }
+    }
 
     // 4. Conflict Resolution (Latest timestamp wins)
     // Exercises
@@ -3736,7 +3957,8 @@ async function handleAuthSubmit() {
     state.auth = {
       email: data.email,
       token: data.token,
-      lastSyncTime: 0
+      lastSyncTime: 0,
+      isAdmin: !!data.isAdmin
     };
     saveAllState();
 
@@ -3753,3 +3975,638 @@ async function handleAuthSubmit() {
     submitBtn.textContent = activeAuthTab === "login" ? "Login" : "Sign Up";
   }
 }
+
+// ==========================================================================
+// 14. ADMIN PORTAL INTERFACE & ROUTINES ASSIGNER
+// ==========================================================================
+let adminClients = [];
+let selectedAdminClient = null;
+let adminBuilderWorkout = {
+  name: "",
+  notes: "",
+  exercises: []
+};
+
+async function renderAdminView() {
+  const listContainer = document.getElementById("admin-clients-list");
+  if (!listContainer) return;
+
+  listContainer.innerHTML = '<div class="skeleton-loader" style="margin: 20px auto;"></div>';
+  document.getElementById("admin-stat-clients").textContent = "-";
+  document.getElementById("admin-stat-total-workouts").textContent = "-";
+
+  if (!state.auth || !state.auth.token || !state.auth.isAdmin) {
+    alert("Unauthorized: Admin access only");
+    switchView("settings");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/clients`, {
+      headers: {
+        "Authorization": `Bearer ${state.auth.token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to load admin client database");
+    }
+
+    const data = await response.json();
+    adminClients = data.clients || [];
+
+    // Calculate aggregated stats
+    document.getElementById("admin-stat-clients").textContent = adminClients.length;
+    const totalLogs = adminClients.reduce((sum, c) => sum + (c.workouts_count || 0), 0);
+    document.getElementById("admin-stat-total-workouts").textContent = totalLogs;
+
+    renderAdminClientsList(adminClients);
+
+  } catch (err) {
+    alert("Admin Error: " + err.message);
+    switchView("settings");
+  }
+}
+
+function renderAdminClientsList(clients) {
+  const container = document.getElementById("admin-clients-list");
+  if (!container) return;
+
+  if (clients.length === 0) {
+    container.innerHTML = '<p class="empty-state-text" style="grid-column: 1/-1; text-align: center; padding: 20px;">No registered clients found.</p>';
+    return;
+  }
+
+  container.innerHTML = "";
+  clients.forEach(client => {
+    const card = document.createElement("div");
+    card.className = "admin-client-card";
+    if (client.banned === 1) {
+      card.classList.add("banned");
+    }
+    
+    let lastActiveText = "Never";
+    if (client.last_workout_time) {
+      lastActiveText = new Date(client.last_workout_time).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    card.innerHTML = `
+      <div class="admin-client-email">${client.email}</div>
+      <div class="admin-client-meta-grid">
+        <div class="admin-client-meta-item">
+          <span class="admin-client-meta-label">Workouts</span>
+          <span class="admin-client-meta-value">${client.workouts_count || 0} logs</span>
+        </div>
+        <div class="admin-client-meta-item">
+          <span class="admin-client-meta-label">Routines</span>
+          <span class="admin-client-meta-value">${client.templates_count || 0} templates</span>
+        </div>
+        <div class="admin-client-meta-item">
+          <span class="admin-client-meta-label">Joined</span>
+          <span class="admin-client-meta-value">${new Date(client.created_at).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span>
+        </div>
+        <div class="admin-client-meta-item">
+          <span class="admin-client-meta-label">Last Active</span>
+          <span class="admin-client-meta-value">${lastActiveText}</span>
+        </div>
+      </div>
+      <div class="admin-client-actions">
+        <button class="btn-admin-view-profile" data-id="${client.id}">
+          <i data-lucide="dumbbell"></i> Assign Custom Routine
+        </button>
+      </div>
+    `;
+
+    // Bind Assign button
+    card.querySelector(".btn-admin-view-profile").addEventListener("click", () => {
+      openAdminClientDetailModal(client);
+    });
+
+    container.appendChild(card);
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function openAdminClientDetailModal(client) {
+  selectedAdminClient = client;
+  
+  const modal = document.getElementById("modal-admin-client-detail");
+  if (!modal) return;
+
+  // Reset tab selectors and active sections
+  const tabAssign = document.getElementById("btn-admin-tab-assign");
+  const tabLogs = document.getElementById("btn-admin-tab-logs");
+  if (tabAssign && tabLogs) {
+    tabAssign.classList.add("active");
+    tabLogs.classList.remove("active");
+    document.getElementById("admin-detail-assign-section").classList.remove("hidden");
+    document.getElementById("admin-detail-logs-section").classList.add("hidden");
+    document.getElementById("admin-detail-footer").classList.remove("hidden");
+  }
+
+  // Set header & basic details
+  document.getElementById("admin-detail-client-email").textContent = client.email;
+  document.getElementById("admin-client-workouts-count").textContent = client.workouts_count || 0;
+  document.getElementById("admin-client-templates-count").textContent = client.templates_count || 0;
+  document.getElementById("admin-client-joined-date").textContent = new Date(client.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+  
+  let lastActiveText = "Never";
+  if (client.last_workout_time) {
+    lastActiveText = new Date(client.last_workout_time).toLocaleString();
+  }
+  document.getElementById("admin-client-last-active").textContent = lastActiveText;
+
+  // Set Danger Zone Ban button state
+  const banBtn = document.getElementById("btn-admin-ban-client");
+  if (banBtn) {
+    if (client.banned === 1) {
+      banBtn.innerHTML = `<i data-lucide="unlock" style="width:14px; height:14px;"></i> Unban Client`;
+      banBtn.classList.add("active");
+    } else {
+      banBtn.innerHTML = `<i data-lucide="ban" style="width:14px; height:14px;"></i> Ban Client`;
+      banBtn.classList.remove("active");
+    }
+  }
+
+  // Load client training history reports
+  loadAdminClientHistoryLogs(client.id);
+
+  // Populate blueprint select
+  const defaultGroup = document.getElementById("admin-default-templates-group");
+  const yourGroup = document.getElementById("admin-your-templates-group");
+  
+  if (defaultGroup) {
+    defaultGroup.innerHTML = DEFAULT_TEMPLATES.map((t, idx) => `
+      <option value="default_${idx}">${t.name} (${t.exercises.length} ex)</option>
+    `).join("");
+  }
+
+  if (yourGroup) {
+    const customTemplates = state.templates.filter(t => !t.deleted);
+    if (customTemplates.length > 0) {
+      yourGroup.innerHTML = customTemplates.map(t => `
+        <option value="custom_${t.id}">${t.name} (${t.exercises.length} ex)</option>
+      `).join("");
+    } else {
+      yourGroup.innerHTML = `<option disabled>No templates created yet</option>`;
+    }
+  }
+
+  // Set default state to scratch custom
+  document.getElementById("admin-assign-template-select").value = "custom_empty";
+  
+  adminBuilderWorkout = {
+    name: "",
+    notes: "",
+    exercises: []
+  };
+  
+  // Fill inputs
+  document.getElementById("input-admin-template-name").value = "";
+  document.getElementById("input-admin-template-notes").value = "";
+  
+  renderAdminBuilderExercises();
+
+  modal.classList.remove("hidden");
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function handleAdminBlueprintChange(e) {
+  const val = e.target.value;
+  
+  if (val === "custom_empty") {
+    adminBuilderWorkout = {
+      name: "",
+      notes: "",
+      exercises: []
+    };
+    document.getElementById("input-admin-template-name").value = "";
+    document.getElementById("input-admin-template-notes").value = "";
+    renderAdminBuilderExercises();
+    return;
+  }
+
+  let selectedTemplate = null;
+  if (val.startsWith("default_")) {
+    const idx = parseInt(val.split("_")[1], 10);
+    selectedTemplate = DEFAULT_TEMPLATES[idx];
+  } else if (val.startsWith("custom_")) {
+    const id = val.substring(7);
+    selectedTemplate = state.templates.find(t => t.id === id);
+  }
+
+  if (selectedTemplate) {
+    adminBuilderWorkout = {
+      name: `Coach Routine - ${selectedTemplate.name}`,
+      notes: selectedTemplate.notes || "",
+      exercises: JSON.parse(JSON.stringify(selectedTemplate.exercises)) // Deep copy
+    };
+
+    // Populate inputs
+    document.getElementById("input-admin-template-name").value = adminBuilderWorkout.name;
+    document.getElementById("input-admin-template-notes").value = adminBuilderWorkout.notes;
+    renderAdminBuilderExercises();
+  }
+}
+
+function renderAdminBuilderExercises() {
+  const container = document.getElementById("admin-template-exercises-list");
+  if (!container) return;
+
+  if (adminBuilderWorkout.exercises.length === 0) {
+    container.innerHTML = '<p class="empty-state-text" style="padding: 10px 0 0 0;">Add exercises to build a custom routine template.</p>';
+    return;
+  }
+
+  container.innerHTML = "";
+  adminBuilderWorkout.exercises.forEach((item, exIdx) => {
+    const exerciseDetails = state.exercises.find(ex => ex.id === item.exerciseId) || { name: item.exerciseId };
+    
+    const card = document.createElement("div");
+    card.className = "admin-builder-exercise-card";
+
+    let setsHtml = "";
+    item.sets.forEach((set, setIdx) => {
+      setsHtml += `
+        <div class="admin-builder-set-row" data-ex-idx="${exIdx}" data-set-idx="${setIdx}">
+          <span class="admin-builder-set-number">${setIdx + 1}</span>
+          <input type="number" class="admin-builder-set-input input-weight" placeholder="lbs" value="${set.weight || ''}" step="any">
+          <input type="number" class="admin-builder-set-input input-reps" placeholder="reps" value="${set.reps || ''}">
+          <button class="btn-admin-remove-set" data-ex-idx="${exIdx}" data-set-idx="${setIdx}">
+            <i data-lucide="minus-circle" style="width: 14px; height: 14px;"></i>
+          </button>
+        </div>
+      `;
+    });
+
+    card.innerHTML = `
+      <div class="admin-builder-exercise-header">
+        <span class="admin-builder-exercise-title">${exerciseDetails.name}</span>
+        <button class="btn-admin-remove-exercise" data-ex-idx="${exIdx}">
+          <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+        </button>
+      </div>
+      <div class="admin-builder-sets-list">
+        <div class="admin-builder-set-row" style="grid-template-columns: 24px 1fr 1fr 24px; text-align: center; border-bottom: 1px dashed rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 2px;">
+          <span></span>
+          <span style="font-size: 0.65rem; color: var(--text-dark); text-transform: uppercase;">Weight</span>
+          <span style="font-size: 0.65rem; color: var(--text-dark); text-transform: uppercase;">Reps</span>
+          <span></span>
+        </div>
+        ${setsHtml}
+      </div>
+      <button class="btn-admin-add-set" data-ex-idx="${exIdx}">
+        <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Add Set
+      </button>
+    `;
+
+    // Bind weight & reps change events
+    card.querySelectorAll(".input-weight").forEach(input => {
+      input.addEventListener("input", (e) => {
+        const row = e.target.closest(".admin-builder-set-row");
+        const eIdx = parseInt(row.dataset.exIdx, 10);
+        const sIdx = parseInt(row.dataset.setIdx, 10);
+        adminBuilderWorkout.exercises[eIdx].sets[sIdx].weight = parseFloat(e.target.value) || 0;
+      });
+    });
+
+    card.querySelectorAll(".input-reps").forEach(input => {
+      input.addEventListener("input", (e) => {
+        const row = e.target.closest(".admin-builder-set-row");
+        const eIdx = parseInt(row.dataset.exIdx, 10);
+        const sIdx = parseInt(row.dataset.setIdx, 10);
+        adminBuilderWorkout.exercises[eIdx].sets[sIdx].reps = parseInt(e.target.value, 10) || 0;
+      });
+    });
+
+    // Remove Exercise click
+    card.querySelector(".btn-admin-remove-exercise").addEventListener("click", () => {
+      adminBuilderWorkout.exercises = adminBuilderWorkout.exercises.filter((_, idx) => idx !== exIdx);
+      renderAdminBuilderExercises();
+    });
+
+    // Add Set click
+    card.querySelector(".btn-admin-add-set").addEventListener("click", () => {
+      const lastSet = item.sets[item.sets.length - 1] || { weight: 135, reps: 8 };
+      item.sets.push({
+        type: "N",
+        weight: lastSet.weight,
+        reps: lastSet.reps
+      });
+      renderAdminBuilderExercises();
+    });
+
+    // Remove Set clicks
+    card.querySelectorAll(".btn-admin-remove-set").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const targetBtn = e.target.closest(".btn-admin-remove-set");
+        const eIdx = parseInt(targetBtn.dataset.exIdx, 10);
+        const sIdx = parseInt(targetBtn.dataset.setIdx, 10);
+        adminBuilderWorkout.exercises[eIdx].sets = adminBuilderWorkout.exercises[eIdx].sets.filter((_, idx) => idx !== sIdx);
+        renderAdminBuilderExercises();
+      });
+    });
+
+    container.appendChild(card);
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function submitAdminAssignTemplate() {
+  if (!selectedAdminClient) return;
+
+  const tName = document.getElementById("input-admin-template-name").value.trim();
+  const tNotes = document.getElementById("input-admin-template-notes").value.trim();
+
+  if (!tName) {
+    alert("Please enter a template name!");
+    return;
+  }
+
+  if (adminBuilderWorkout.exercises.length === 0) {
+    alert("Please add at least one exercise to assign!");
+    return;
+  }
+
+  // Validate exercises have at least 1 set
+  for (const item of adminBuilderWorkout.exercises) {
+    if (item.sets.length === 0) {
+      const exDetails = state.exercises.find(ex => ex.id === item.exerciseId) || { name: item.exerciseId };
+      alert(`Exercise "${exDetails.name}" must have at least one set!`);
+      return;
+    }
+  }
+
+  const payload = {
+    userId: selectedAdminClient.id,
+    template: {
+      name: tName,
+      notes: tNotes,
+      exercises: adminBuilderWorkout.exercises
+    }
+  };
+
+  const submitBtn = document.getElementById("btn-admin-assign-submit");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Assigning Template...";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/assign-template`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to assign routine template");
+    }
+
+    alert(`Successfully assigned template "${tName}" to ${selectedAdminClient.email}!`);
+    document.getElementById("modal-admin-client-detail").classList.add("hidden");
+    
+    // Refresh client counts dynamically
+    renderAdminView();
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Assign Workout Template";
+  }
+}
+
+async function loadAdminClientHistoryLogs(clientId) {
+  const container = document.getElementById("admin-client-logs-list");
+  if (!container) return;
+
+  container.innerHTML = '<div class="skeleton-loader" style="margin: 20px auto;"></div>';
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/client/${clientId}/history`, {
+      headers: {
+        "Authorization": `Bearer ${state.auth.token}`
+      }
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to load logs");
+    }
+
+    const history = data.history || [];
+    if (history.length === 0) {
+      container.innerHTML = '<p class="empty-state-text" style="padding: 20px 0; text-align: center;">No workouts logged by this client yet.</p>';
+      return;
+    }
+
+    container.innerHTML = history.map(log => {
+      const dateStr = new Date(log.start_time).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const exercisesHtml = log.exercises.map(ex => {
+        const exName = state.exercises.find(e => e.id === ex.exerciseId)?.name || ex.exerciseId;
+        const setsCount = ex.sets ? ex.sets.length : 0;
+        return `
+          <div class="admin-client-log-ex-row">
+            <span class="admin-client-log-ex-name">${exName}</span>
+            <span class="admin-client-log-ex-sets">${setsCount} sets</span>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="admin-client-log-card">
+          <div class="admin-client-log-header">
+            <h4 class="admin-client-log-title">${log.name}</h4>
+            <span class="admin-client-log-date">${dateStr}</span>
+          </div>
+          <div class="admin-client-log-exercises">
+            ${exercisesHtml}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  } catch (err) {
+    container.innerHTML = `<p class="empty-state-text" style="color: var(--color-danger); text-align: center; padding: 20px 0;">Error loading logs: ${err.message}</p>`;
+  }
+}
+
+async function toggleBanClient() {
+  if (!selectedAdminClient) return;
+
+  const isBanned = selectedAdminClient.banned === 1;
+  const actionText = isBanned ? "unban" : "ban";
+  if (!confirm(`Are you sure you want to ${actionText} this client?`)) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/client/${selectedAdminClient.id}/ban`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify({ banned: !isBanned })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to update ban status");
+    }
+
+    alert(`Successfully ${isBanned ? "unbanned" : "banned"} client!`);
+    document.getElementById("modal-admin-client-detail").classList.add("hidden");
+    
+    // Refresh client list
+    renderAdminView();
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+async function deleteClientAccount() {
+  if (!selectedAdminClient) return;
+
+  if (!confirm(`⚠️ WARNING: Are you sure you want to permanently DELETE ${selectedAdminClient.email}?\nThis will erase all their logged workouts, templates, settings, and profile data from the cloud forever!`)) return;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/client/${selectedAdminClient.id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${state.auth.token}`
+      }
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to delete account");
+    }
+
+    alert("Client account and all synced data permanently erased!");
+    document.getElementById("modal-admin-client-detail").classList.add("hidden");
+    
+    // Refresh client list
+    renderAdminView();
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+async function submitGlobalBroadcast() {
+  const messageInput = document.getElementById("input-admin-broadcast-message");
+  const msg = messageInput.value.trim();
+
+  if (!msg) {
+    alert("Please enter a broadcast message!");
+    return;
+  }
+
+  const submitBtn = document.getElementById("btn-admin-broadcast-submit");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Sending...";
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/admin/broadcast`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify({ message: msg })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to publish broadcast");
+    }
+
+    alert("Global announcement broadcasted successfully!");
+    messageInput.value = "";
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<i data-lucide="send" style="width: 14px; height: 14px;"></i> Send`;
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function handleBannedUserLogout(msg) {
+  const alertMsg = msg || "🚫 Access Blocked: Your account has been banned/disabled by the administrator.";
+  alert(alertMsg);
+  state.auth = { email: null, token: null, lastSyncTime: 0, isAdmin: false };
+  saveAllState();
+  updateCloudUI();
+  switchView("settings");
+}
+
+function runSplashLoadingSequence() {
+  const splash = document.getElementById("app-splash-screen");
+  const progress = document.querySelector(".splash-loader-progress");
+  const status = document.getElementById("splash-status-text");
+  
+  if (!splash) return;
+
+  const steps = [
+    { pct: 25, text: "Loading training database..." },
+    { pct: 55, text: "Checking authentication session..." },
+    { pct: 85, text: "Connecting to Cloudflare edge..." },
+    { pct: 100, text: "Welcome to BeBig!" }
+  ];
+
+  let stepIdx = 0;
+  
+  function nextStep() {
+    if (stepIdx >= steps.length) {
+      setTimeout(() => {
+        splash.classList.add("fade-out");
+        
+        // After splash screen has faded out, check if user is not authenticated and prompt
+        setTimeout(() => {
+          splash.classList.add("hidden");
+          
+          if (!state.auth || !state.auth.token) {
+            const authModal = document.getElementById("modal-cloud-auth");
+            if (authModal) {
+              authModal.classList.remove("hidden");
+              document.getElementById("auth-error-msg").classList.add("hidden");
+              document.getElementById("input-auth-email").value = "";
+              document.getElementById("input-auth-password").value = "";
+              switchAuthTab("login");
+            }
+          }
+        }, 600); // Wait for the 0.6s opacity transition to complete
+      }, 400);
+      return;
+    }
+
+    const current = steps[stepIdx];
+    if (progress) progress.style.width = `${current.pct}%`;
+    if (status) status.textContent = current.text;
+
+    stepIdx++;
+    setTimeout(nextStep, 500); // 0.5s per step -> 2.0s total splash duration
+  }
+
+  // Start sequence
+  nextStep();
+}
+
+
