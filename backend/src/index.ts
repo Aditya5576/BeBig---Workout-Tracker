@@ -631,7 +631,7 @@ Generate between 3 to 6 exercises appropriate for the split and duration. Sugges
 - Experience Level: ${experience || 'Intermediate'}
 - Target Duration: ${duration || '45'} minutes`;
 
-    const aiRes: any = await c.env.AI.run('@cf/meta/llama-3-8b-instruct', {
+    const aiRes: any = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
