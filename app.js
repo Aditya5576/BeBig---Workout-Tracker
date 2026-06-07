@@ -2544,6 +2544,14 @@ function saveCustomExercise() {
 
   // Refresh current view
   renderExercisesView(document.getElementById("input-exercise-search").value);
+
+  // Auto-select and refresh selector list if the selector is active
+  const isSelectorOpen = !document.getElementById("modal-exercise-selector").classList.contains("hidden");
+  if (isSelectorOpen) {
+    selectorCurrentSelection.push(newEx.id);
+    updateSelectorConfirmButton();
+    renderSelectorList(document.getElementById("input-modal-search").value);
+  }
 }
 
 // --- TEMPLATE EDITOR MODAL (Create/Edit workout template) ---
@@ -3415,6 +3423,18 @@ document.addEventListener("DOMContentLoaded", () => {
         selectorTargetCallback(selectorCurrentSelection);
       }
       document.getElementById("modal-exercise-selector").classList.add("hidden");
+    });
+  }
+
+  const btnSelectorCreateCustom = document.getElementById("btn-selector-create-custom");
+  if (btnSelectorCreateCustom) {
+    btnSelectorCreateCustom.addEventListener("click", () => {
+      const createModal = document.getElementById("modal-create-exercise");
+      if (createModal) {
+        createModal.classList.remove("hidden");
+        document.getElementById("input-custom-exercise-name").value = "";
+        document.getElementById("input-custom-exercise-instructions").value = "";
+      }
     });
   }
 

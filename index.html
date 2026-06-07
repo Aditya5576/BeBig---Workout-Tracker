@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=16">
+  <link rel="stylesheet" href="index.css?v=17">
 </head>
 <body>
   <!-- SPLASH SCREEN LAYER -->
@@ -803,7 +803,12 @@
   <div id="modal-exercise-selector" class="modal-overlay hidden">
     <div class="modal-content drawer">
       <div class="modal-header">
-        <h2>Add Exercise</h2>
+        <h2 style="display: flex; align-items: center; gap: 8px;">
+          <span>Add Exercise</span>
+          <button id="btn-selector-create-custom" class="btn-text-icon" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--color-primary); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Create Custom Exercise">
+            <i data-lucide="plus" style="width: 10px; height: 10px;"></i> Custom
+          </button>
+        </h2>
         <button class="btn-close-modal" id="btn-close-exercise-selector"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-search-bar search-container">
@@ -1357,6 +1362,6 @@
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Application JS Code -->
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
