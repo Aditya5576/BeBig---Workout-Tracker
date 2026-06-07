@@ -1931,18 +1931,41 @@ function renderStartView() {
     });
     const targetedMuscles = Object.keys(musclesMap);
 
-    // Build names of exercises in template as capsule tags (max 4)
+    // Build list of exercises in template as elegant list items (max 4)
     const maxToShow = 4;
-    const tags = template.exercises.slice(0, maxToShow).map(ex => {
+    const items = template.exercises.slice(0, maxToShow).map(ex => {
       const det = state.exercises.find(e => e.id === ex.exerciseId);
-      return det ? `<span class="template-exercise-tag">${det.name}</span>` : "";
+      if (!det) return "";
+      
+      const setsCount = ex.sets ? ex.sets.length : 0;
+      const firstSet = ex.sets && ex.sets[0] ? ex.sets[0] : null;
+      let setDetails = "";
+      if (firstSet) {
+        setDetails = `<span class="template-exercise-meta">${setsCount} sets × ${firstSet.reps} reps</span>`;
+      }
+
+      return `
+        <div class="template-exercise-row">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="dumbbell" style="width: 12px; height: 12px; color: var(--color-primary); opacity: 0.85;"></i>
+            <span class="template-exercise-name">${det.name}</span>
+          </div>
+          ${setDetails}
+        </div>
+      `;
     }).filter(Boolean);
 
     if (template.exercises.length > maxToShow) {
-      tags.push(`<span class="template-exercise-tag more">+${template.exercises.length - maxToShow} more</span>`);
+      items.push(`
+        <div class="template-exercise-row more" style="color: var(--color-primary); padding-left: 20px;">
+          <span>+ ${template.exercises.length - maxToShow} more exercises</span>
+        </div>
+      `);
     }
 
-    const tagsHTML = tags.length > 0 ? tags.join("") : '<span class="template-exercise-tag">No exercises</span>';
+    const exercisesHTML = items.length > 0 
+      ? `<div class="template-exercises-track">${items.join("")}</div>`
+      : '<p class="empty-state-text" style="font-size: 0.75rem; margin: 4px 0 0 0;">No exercises added yet.</p>';
 
     // Muscle group badges
     let musclesHTML = "";
@@ -1950,7 +1973,7 @@ function renderStartView() {
       const badges = targetedMuscles.map(muscle => {
         const muscleClean = muscle.toLowerCase().replace(/\s+/g, '-');
         const badgeClass = `primary-muscle-badge ${muscleClean}`;
-        return `<span class="${badgeClass}" style="font-size: 0.58rem; padding: 2px 6px; border-radius: 4px;">${muscle}</span>`;
+        return `<span class="${badgeClass}">${muscle}</span>`;
       });
       musclesHTML = `<div class="template-card-muscle-badges">${badges.join(" ")}</div>`;
     }
@@ -1970,7 +1993,7 @@ function renderStartView() {
           </button>
         </div>
       </div>
-      <div class="template-card-exercises">${tagsHTML}</div>
+      ${exercisesHTML}
       ${template.notes ? `<div class="template-card-notes">${template.notes}</div>` : ''}
       ${musclesHTML}
     `;

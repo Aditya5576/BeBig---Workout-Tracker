@@ -3647,3 +3647,151 @@ html, body {
   font-weight: 700;
   font-family: var(--font-heading);
 }
+
+/* Premium Workout Templates UI Revamp */
+
+.template-exercises-track {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 10px 0;
+  border-left: 2px solid rgba(255, 255, 255, 0.04);
+  padding-left: 14px;
+  margin-left: 4px;
+}
+
+.template-exercise-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: all var(--transition-smooth);
+}
+
+.template-card:hover .template-exercise-row {
+  color: var(--text-main);
+}
+
+.template-exercise-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+}
+
+.template-exercise-meta {
+  font-size: 0.72rem;
+  color: var(--text-dark);
+  font-weight: 600;
+  font-family: var(--font-body);
+}
+
+.template-card:hover .template-exercise-meta {
+  color: var(--color-primary);
+}
+
+.template-exercise-row.more {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* Premium Notes Callout block */
+.template-card-notes {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.015);
+  border-left: 2px solid var(--color-primary);
+  padding: 6px 10px;
+  border-radius: 0 8px 8px 0;
+  margin: 10px 0;
+  font-style: normal;
+  line-height: 1.4;
+  font-family: var(--font-body);
+}
+
+/* Premium Rounded Muscle Badges */
+.primary-muscle-badge {
+  font-size: 0.6rem;
+  border-radius: 12px !important;
+  padding: 3px 10px !important;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Action Cards Layout Enhancements */
+.action-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.start-empty-card {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.06) 0%, rgba(16, 185, 129, 0.02) 100%) !important;
+  border: 1px solid rgba(0, 242, 254, 0.22) !important;
+  box-shadow: 0 8px 24px rgba(0, 242, 254, 0.04), inset 0 0 15px rgba(0, 242, 254, 0.02) !important;
+}
+
+.start-empty-card:hover {
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.1) 0%, rgba(16, 185, 129, 0.04) 100%) !important;
+  border-color: rgba(0, 242, 254, 0.55) !important;
+  box-shadow: 0 8px 32px rgba(0, 242, 254, 0.15) !important;
+}
+
+.ai-coach-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, rgba(212, 252, 52, 0.02) 100%) !important;
+  border: 1px dashed rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.03) !important;
+}
+
+.ai-coach-card .action-card-content h3 {
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-coach-card .ai-sparkles-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-primary);
+}
+
+.ai-coach-card .action-card-icon {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-primary);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.08);
+  border: none;
+}
+
+.ai-coach-card:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(212, 252, 52, 0.04) 100%) !important;
+  border-style: solid !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15) !important;
+}
+
+.ai-coach-card:hover .action-card-icon {
+  transform: scale(1.06) rotate(15deg);
+  background: var(--color-primary);
+  color: var(--bg-dark);
+}
+
+/* Template Cards Glassmorphic Overhaul */
+.template-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.template-card:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.015) 100%);
+  border-color: rgba(16, 185, 129, 0.22) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2), 0 0 15px rgba(16, 185, 129, 0.03);
+}
