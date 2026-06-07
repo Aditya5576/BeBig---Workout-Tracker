@@ -1082,10 +1082,10 @@ function renderActiveWorkoutUI() {
           </td>
           <td class="set-previous">${set.previous || '—'}</td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight || ''}" data-field="weight">
+            <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
           </td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps || ''}" data-field="reps">
+            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined && set.reps !== null && set.reps !== '' ? set.reps : ''}" data-field="reps">
           </td>
           <td>
             <div class="set-checkmark" data-action="toggle-complete">
@@ -1201,14 +1201,14 @@ function handleActiveWorkoutClickEvents(e) {
     else if (action === "add-set") {
       // Add a set with values copied from last set in the list
       const setLength = activeEx.sets.length;
-      let newWeight = 0;
-      let newReps = 0;
+      let newWeight = "";
+      let newReps = "";
       let newType = "N";
 
       if (setLength > 0) {
         const lastSet = activeEx.sets[setLength - 1];
-        newWeight = lastSet.weight || 0;
-        newReps = lastSet.reps || 0;
+        newWeight = (lastSet.weight !== undefined && lastSet.weight !== null && lastSet.weight !== "") ? lastSet.weight : "";
+        newReps = (lastSet.reps !== undefined && lastSet.reps !== null && lastSet.reps !== "") ? lastSet.reps : "";
         newType = lastSet.type || "N";
       }
 
@@ -1266,9 +1266,9 @@ function handleActiveWorkoutInputChanges(e) {
   if (state.activeWorkout && state.activeWorkout.exercises[exIdx]) {
     const set = state.activeWorkout.exercises[exIdx].sets[setIdx];
     if (field === "weight") {
-      set.weight = parseFloat(input.value) || 0;
+      set.weight = input.value === "" ? "" : parseFloat(input.value);
     } else if (field === "reps") {
-      set.reps = parseInt(input.value) || 0;
+      set.reps = input.value === "" ? "" : parseInt(input.value);
     }
     saveAllState();
   }
@@ -1283,11 +1283,12 @@ function addExercisesToWorkout(selectedIds) {
     const prevStr = getPreviousSetStatsString(id);
 
     if (existing) {
+      const lastSet = existing.sets[existing.sets.length - 1];
       existing.sets.push({
         id: `set-${Date.now()}-${existing.sets.length}-${Math.random()}`,
         type: "N",
-        weight: existing.sets[0]?.weight || 0,
-        reps: existing.sets[0]?.reps || 0,
+        weight: (lastSet && lastSet.weight !== undefined && lastSet.weight !== null) ? lastSet.weight : "",
+        reps: (lastSet && lastSet.reps !== undefined && lastSet.reps !== null) ? lastSet.reps : "",
         completed: false,
         previous: prevStr
       });
@@ -1295,9 +1296,9 @@ function addExercisesToWorkout(selectedIds) {
       state.activeWorkout.exercises.push({
         exerciseId: id,
         sets: [
-          { id: `set-${Date.now()}-0-${Math.random()}`, type: "N", weight: 0, reps: 0, completed: false, previous: prevStr },
-          { id: `set-${Date.now()}-1-${Math.random()}`, type: "N", weight: 0, reps: 0, completed: false, previous: prevStr },
-          { id: `set-${Date.now()}-2-${Math.random()}`, type: "N", weight: 0, reps: 0, completed: false, previous: prevStr }
+          { id: `set-${Date.now()}-0-${Math.random()}`, type: "N", weight: "", reps: "", completed: false, previous: prevStr },
+          { id: `set-${Date.now()}-1-${Math.random()}`, type: "N", weight: "", reps: "", completed: false, previous: prevStr },
+          { id: `set-${Date.now()}-2-${Math.random()}`, type: "N", weight: "", reps: "", completed: false, previous: prevStr }
         ]
       });
     }
@@ -2518,10 +2519,10 @@ function renderTemplateEditorExercises() {
             </button>
           </td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-weight" placeholder="0" min="0" value="${set.weight || ''}" data-field="weight">
+            <input type="number" class="input-set-weight" placeholder="0" min="0" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
           </td>
           <td class="set-input-cell">
-            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps || ''}" data-field="reps">
+            <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined && set.reps !== null && set.reps !== '' ? set.reps : ''}" data-field="reps">
           </td>
           <td>
             <button class="btn-delete-set" data-action="delete-editor-set" title="Delete set">
@@ -2660,9 +2661,9 @@ function handleTemplateEditorInputChanges(e) {
   const activeEx = templateEditorExercises[exIdx];
   if (activeEx && activeEx.sets[setIdx]) {
     if (field === "weight") {
-      activeEx.sets[setIdx].weight = parseFloat(input.value) || 0;
+      activeEx.sets[setIdx].weight = input.value === "" ? "" : parseFloat(input.value);
     } else if (field === "reps") {
-      activeEx.sets[setIdx].reps = parseInt(input.value) || 0;
+      activeEx.sets[setIdx].reps = input.value === "" ? "" : parseInt(input.value);
     }
   }
 }
@@ -3290,7 +3291,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!templateEditorExercises.some(e => e.exerciseId === id)) {
             templateEditorExercises.push({
               exerciseId: id,
-              sets: [{ type: "N", weight: 0, reps: 0 }, { type: "N", weight: 0, reps: 0 }, { type: "N", weight: 0, reps: 0 }]
+              sets: [{ type: "N", weight: "", reps: "" }, { type: "N", weight: "", reps: "" }, { type: "N", weight: "", reps: "" }]
             });
           }
         });
