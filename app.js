@@ -158,24 +158,50 @@ function initStore() {
     "Sun": null
   });
 
-  // Ensure all entities have sync properties
+  // Ensure all entities have sync properties and dirty flags
   state.exercises.forEach(ex => {
     if (ex.updated_at === undefined) ex.updated_at = 0;
     if (ex.deleted === undefined) ex.deleted = 0;
+    if (ex.dirty === undefined) ex.dirty = 0;
   });
   state.templates.forEach(t => {
     if (t.updated_at === undefined) t.updated_at = 0;
     if (t.deleted === undefined) t.deleted = 0;
+    if (t.dirty === undefined) t.dirty = 0;
   });
+
+  // Repair any corrupted history logs due to server/client casing differences
+  let needsFullSync = false;
   state.history.forEach(h => {
+    if (h.startTime === undefined && h.start_time !== undefined) {
+      h.startTime = h.start_time;
+    }
+    if (h.endTime === undefined && h.end_time !== undefined) {
+      h.endTime = h.end_time;
+    }
+    if (h.startTime === undefined || h.endTime === undefined) {
+      needsFullSync = true;
+    }
+
     if (h.updated_at === undefined) h.updated_at = 0;
     if (h.deleted === undefined) h.deleted = 0;
+    if (h.dirty === undefined) h.dirty = 0;
   });
+
+  // If logs were corrupted, trigger a fresh pull of all user history from the database
+  if (needsFullSync && state.auth && state.auth.token) {
+    state.auth.lastSyncTime = 0;
+    state.history = state.history.filter(h => h.startTime !== undefined && h.endTime !== undefined);
+  }
+
   if (state.settings.notificationsEnabled === undefined) {
     state.settings.notificationsEnabled = false;
   }
   if (state.settings.updated_at === undefined) {
     state.settings.updated_at = 0;
+  }
+  if (state.settings.dirty === undefined) {
+    state.settings.dirty = 0;
   }
 }
 
@@ -1283,8 +1309,8 @@ function handleActiveWorkoutClickEvents(e) {
       // Weight & Rep validation
       const weightInput = row.querySelector(".input-set-weight");
       const repsInput = row.querySelector(".input-set-reps");
-      const weight = parseFloat(weightInput.value) || 0;
-      const reps = parseInt(repsInput.value) || 0;
+      const weight = weightInput.value.trim() === "" ? "" : (parseFloat(weightInput.value) || 0);
+      const reps = repsInput.value.trim() === "" ? "" : (parseInt(repsInput.value) || 0);
 
       // Update state
       const set = activeEx.sets[setIdx];
@@ -1454,7 +1480,8 @@ function finishActiveWorkout() {
       sets: ex.sets.filter(s => s.completed) // only save completed sets in history
     })).filter(ex => ex.sets.length > 0), // only save exercises with completed sets
     updated_at: Date.now(),
-    deleted: 0
+    deleted: 0,
+    dirty: 1
   };
 
   // Push to history
@@ -1463,6 +1490,12 @@ function finishActiveWorkout() {
   // Clear active workout
   state.activeWorkout = null;
   saveAllState();
+
+  // Instant cloud sync
+  if (state.auth && state.auth.token) {
+    syncData();
+  }
+  
   stopWorkoutTimer();
 
   // Reset overlays
@@ -1519,8 +1552,12 @@ function renderHomeView() {
 
   // Update profile avatars globally (home, header, settings)
   const hasPhoto = !!state.settings.profilePhoto;
-  const emailName = state.auth.email ? state.auth.email.split('@')[0] : "Adi";
-  const initials = emailName.slice(0, 2).toUpperCase();
+  const displayName = state.auth.name || (state.auth.email ? state.auth.email.split('@')[0] : "Adi");
+  let initials = displayName.substring(0, 2).toUpperCase();
+  if (state.auth.name && state.auth.name.includes(" ")) {
+    const parts = state.auth.name.split(" ");
+    initials = (parts[0][0] + (parts[1] ? parts[1][0] : parts[0][1])).toUpperCase();
+  }
   
   document.querySelectorAll("#home-profile-avatar, .app-header .profile-avatar, .profile-card-avatar").forEach(el => {
     if (hasPhoto) {
@@ -1549,9 +1586,14 @@ function renderHomeView() {
   }
   
   if (greetingTitle) {
-    const name = state.auth.email ? state.auth.email.split('@')[0].split('.')[0] : "Adi";
-    const displayName = name.charAt(0).toUpperCase() + name.slice(1);
-    greetingTitle.innerHTML = `${timeGreeting},<br><span style="background: linear-gradient(135deg, #d4fc34 0%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${displayName}</span>`;
+    let nameGreet = "Adi";
+    if (state.auth.name) {
+      nameGreet = state.auth.name.split(" ")[0];
+    } else if (state.auth.email) {
+      const parts = state.auth.email.split('@')[0].split('.');
+      nameGreet = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    }
+    greetingTitle.innerHTML = `${timeGreeting},<br><span style="background: linear-gradient(135deg, #d4fc34 0%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${nameGreet}</span>`;
   }
 
   if (quoteEl) {
@@ -2184,9 +2226,15 @@ function deleteHistoryItem(id) {
     if (item) {
       item.deleted = 1;
       item.updated_at = Date.now();
+      item.dirty = 1;
       saveAllState();
       renderHistoryView(document.getElementById("input-history-search").value);
       Analytics.calculateAllStats();
+
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
     }
   }
 }
@@ -2513,14 +2561,15 @@ function saveCustomExercise() {
     return;
   }
 
-  // Create unique ID
-  const id = "custom-" + name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
-
   // Check if exists
-  if (state.exercises.some(ex => ex.id === id || ex.name.toLowerCase() === name.toLowerCase())) {
+  if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
     alert("An exercise with this name already exists!");
     return;
   }
+
+  // Create globally unique ID
+  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-");
+  const id = `custom-${slug}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const newEx = {
     id: id,
@@ -2529,7 +2578,8 @@ function saveCustomExercise() {
     category: catEl.value,
     instructions: instEl.value.trim(),
     updated_at: Date.now(),
-    deleted: 0
+    deleted: 0,
+    dirty: 1
   };
 
   state.exercises.push(newEx);
@@ -2551,6 +2601,11 @@ function saveCustomExercise() {
     selectorCurrentSelection.push(newEx.id);
     updateSelectorConfirmButton();
     renderSelectorList(document.getElementById("input-modal-search").value);
+  }
+
+  // Instant cloud sync
+  if (state.auth && state.auth.token) {
+    syncData();
   }
 }
 
@@ -2760,14 +2815,15 @@ function handleTemplateEditorClicks(e) {
     } 
     else if (action === "add-editor-set") {
       const setLength = activeEx.sets.length;
-      let newWeight = 0;
-      let newReps = 0;
+      let newWeight = "";
+      let newReps = "";
       let newType = "N";
 
       if (setLength > 0) {
-        newWeight = activeEx.sets[setLength - 1].weight || 0;
-        newReps = activeEx.sets[setLength - 1].reps || 0;
-        newType = activeEx.sets[setLength - 1].type || "N";
+        const lastSet = activeEx.sets[setLength - 1];
+        newWeight = (lastSet.weight !== undefined && lastSet.weight !== null && lastSet.weight !== "") ? lastSet.weight : "";
+        newReps = (lastSet.reps !== undefined && lastSet.reps !== null && lastSet.reps !== "") ? lastSet.reps : "";
+        newType = lastSet.type || "N";
       }
 
       activeEx.sets.push({ type: newType, weight: newWeight, reps: newReps });
@@ -2838,8 +2894,8 @@ function saveWorkoutTemplate() {
     exerciseId: ex.exerciseId,
     sets: ex.sets.map(s => ({
       type: s.type || "N",
-      weight: parseFloat(s.weight) || 0,
-      reps: parseInt(s.reps) || 0
+      weight: (s.weight !== undefined && s.weight !== null && s.weight !== "") ? parseFloat(s.weight) : "",
+      reps: (s.reps !== undefined && s.reps !== null && s.reps !== "") ? parseInt(s.reps) : ""
     }))
   }));
 
@@ -2852,6 +2908,7 @@ function saveWorkoutTemplate() {
       state.templates[tmplIdx].exercises = sanitizedExercises;
       state.templates[tmplIdx].updated_at = Date.now();
       state.templates[tmplIdx].deleted = 0;
+      state.templates[tmplIdx].dirty = 1;
     }
   } else {
     // Create new template
@@ -2861,7 +2918,8 @@ function saveWorkoutTemplate() {
       notes: notesInput.value.trim(),
       exercises: sanitizedExercises,
       updated_at: Date.now(),
-      deleted: 0
+      deleted: 0,
+      dirty: 1
     };
     state.templates.push(newTmpl);
   }
@@ -2871,6 +2929,11 @@ function saveWorkoutTemplate() {
 
   // Close modal
   document.getElementById("modal-template-editor").classList.add("hidden");
+
+  // Instant cloud sync
+  if (state.auth && state.auth.token) {
+    syncData();
+  }
 }
 
 function deleteWorkoutTemplate(templateId) {
@@ -2879,8 +2942,14 @@ function deleteWorkoutTemplate(templateId) {
     if (tmpl) {
       tmpl.deleted = 1;
       tmpl.updated_at = Date.now();
+      tmpl.dirty = 1;
       saveAllState();
       renderStartView();
+      
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
     }
   }
 }
@@ -2945,7 +3014,7 @@ function loadSettingsView() {
   const profileCardAvatar = document.querySelector(".profile-card-avatar");
 
   if (state.auth && state.auth.email) {
-    profileCardName.textContent = state.auth.email.split("@")[0].toUpperCase();
+    profileCardName.textContent = (state.auth.name || state.auth.email.split("@")[0]).toUpperCase();
     if (state.auth.isAdmin) {
       profileCardTier.textContent = "🛡️ System Administrator";
       profileCardAvatar.textContent = "AD";
@@ -3156,9 +3225,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const weightVal = parseFloat(document.getElementById("input-log-weight-value").value);
       if (weightVal && weightVal > 0) {
         state.settings.currentWeight = weightVal;
+        state.settings.updated_at = Date.now();
+        state.settings.dirty = 1;
         saveAllState();
         renderHomeView();
         document.getElementById("modal-log-weight").classList.add("hidden");
+        
+        // Instant cloud sync
+        if (state.auth && state.auth.token) {
+          syncData();
+        }
       } else {
         alert("Please enter a valid weight!");
       }
@@ -3202,6 +3278,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (closeModal) {
       const modal = target.closest(".modal-overlay");
       if (modal) modal.classList.add("hidden");
+      return;
+    }
+
+    // + Custom button inside exercise selector modal
+    if (target.closest("#btn-selector-create-custom")) {
+      const createModal = document.getElementById("modal-create-exercise");
+      if (createModal) {
+        createModal.classList.remove("hidden");
+        const nameEl = document.getElementById("input-custom-exercise-name");
+        const instEl = document.getElementById("input-custom-exercise-instructions");
+        if (nameEl) nameEl.value = "";
+        if (instEl) instEl.value = "";
+      }
       return;
     }
   });
@@ -3268,6 +3357,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnLbs.addEventListener("click", () => {
       state.settings.unit = "lbs";
       state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
       btnLbs.classList.add("active");
       if (btnKg) btnKg.classList.remove("active");
       saveAllState();
@@ -3280,6 +3370,11 @@ document.addEventListener("DOMContentLoaded", () => {
         <option value="15">Technique Bar (15 lbs)</option>
       `;
       Analytics.calculateAllStats();
+
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
     });
   }
 
@@ -3287,6 +3382,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnKg.addEventListener("click", () => {
       state.settings.unit = "kg";
       state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
       btnKg.classList.add("active");
       if (btnLbs) btnLbs.classList.remove("active");
       saveAllState();
@@ -3299,6 +3395,11 @@ document.addEventListener("DOMContentLoaded", () => {
         <option value="10">Technique Bar (10 kg)</option>
       `;
       Analytics.calculateAllStats();
+
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
     });
   }
 
@@ -3307,7 +3408,13 @@ document.addEventListener("DOMContentLoaded", () => {
     selectRest.addEventListener("change", (e) => {
       state.settings.defaultRest = parseInt(e.target.value) || 90;
       state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
       saveAllState();
+
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData();
+      }
     });
   }
 
@@ -3426,17 +3533,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  const btnSelectorCreateCustom = document.getElementById("btn-selector-create-custom");
-  if (btnSelectorCreateCustom) {
-    btnSelectorCreateCustom.addEventListener("click", () => {
-      const createModal = document.getElementById("modal-create-exercise");
-      if (createModal) {
-        createModal.classList.remove("hidden");
-        document.getElementById("input-custom-exercise-name").value = "";
-        document.getElementById("input-custom-exercise-instructions").value = "";
-      }
-    });
-  }
+  // NOTE: #btn-selector-create-custom is handled by the delegated body click handler above
 
   // --- FLOATING REST TIMER CONTROLS ---
   const btnCloseRest = document.getElementById("btn-close-rest-timer");
@@ -3563,6 +3660,13 @@ document.addEventListener("DOMContentLoaded", () => {
     syncData();
   }
 
+  // Live real-time background sync polling (every 10 seconds, only when tab is visible)
+  setInterval(() => {
+    if (state.auth && state.auth.token && document.visibilityState === "visible") {
+      syncData(true); // silent sync in background
+    }
+  }, 10000);
+
   // --- CLOUD SYNC & AUTH BINDINGS ---
   const btnCloudAccount = document.getElementById("btn-cloud-account");
   if (btnCloudAccount) {
@@ -3595,6 +3699,8 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("auth-error-msg").classList.add("hidden");
         document.getElementById("input-auth-email").value = "";
         document.getElementById("input-auth-password").value = "";
+        const nameInput = document.getElementById("input-auth-name");
+        if (nameInput) nameInput.value = "";
         switchAuthTab("login");
       }
     });
@@ -3650,6 +3756,7 @@ document.addEventListener("DOMContentLoaded", () => {
             btnNotifOn.classList.add("active");
             btnNotifOff.classList.remove("active");
             state.settings.updated_at = Date.now();
+            state.settings.dirty = 1;
             saveAllState();
           } else {
             alert("Notification permission was denied. Please enable it in browser settings.");
@@ -3660,6 +3767,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btnNotifOn.classList.add("active");
         btnNotifOff.classList.remove("active");
         state.settings.updated_at = Date.now();
+        state.settings.dirty = 1;
         saveAllState();
       }
     });
@@ -3669,6 +3777,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btnNotifOff.classList.add("active");
       btnNotifOn.classList.remove("active");
       state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
       saveAllState();
     });
   }
@@ -3810,6 +3919,11 @@ async function loadExercisesDatabase() {
       renderExercisesView(query);
       setupMuscleFilters();
       initCustomExerciseModal();
+      
+      // Refresh all other views that depend on resolved exercise details
+      renderStartView();
+      renderActiveWorkoutUI();
+      renderHistoryView();
       console.log(`Loaded ${fetchedExercises.length} standard exercises and preserved ${customExercises.length} custom exercises.`);
     }
   } catch (err) {
@@ -3826,7 +3940,7 @@ const API_BASE_URL = window.location.hostname === "localhost" || window.location
 
 let isSyncing = false;
 
-async function syncData() {
+async function syncData(isSilent = false) {
   if (isSyncing || !state.auth || !state.auth.token) return;
   isSyncing = true;
   
@@ -3835,25 +3949,27 @@ async function syncData() {
   let syncIcon = null;
   let syncHeaderIcon = null;
   
-  if (syncBtn) {
-    syncIcon = syncBtn.querySelector(".settings-row-icon");
-    if (syncIcon) syncIcon.classList.add("spinning");
-  }
-  if (syncBtnHeader) {
-    syncHeaderIcon = syncBtnHeader.querySelector("i");
-    if (syncHeaderIcon) syncHeaderIcon.classList.add("spinning");
+  if (!isSilent) {
+    if (syncBtn) {
+      syncIcon = syncBtn.querySelector(".settings-row-icon");
+      if (syncIcon) syncIcon.classList.add("spinning");
+    }
+    if (syncBtnHeader) {
+      syncHeaderIcon = syncBtnHeader.querySelector("i");
+      if (syncHeaderIcon) syncHeaderIcon.classList.add("spinning");
+    }
   }
 
   try {
     const lastSync = state.auth.lastSyncTime || 0;
     
-    // 1. Filter local modifications since last sync
-    const exercisesToPush = state.exercises.filter(ex => ex.id && String(ex.id).startsWith("custom-") && (ex.updated_at || 0) > lastSync);
-    const templatesToPush = state.templates.filter(t => (t.updated_at || 0) > lastSync);
-    const historyToPush = state.history.filter(h => (h.updated_at || 0) > lastSync);
+    // 1. Filter local modifications since last sync (or marked dirty)
+    const exercisesToPush = state.exercises.filter(ex => ex.id && String(ex.id).startsWith("custom-") && (ex.dirty || (ex.updated_at || 0) > lastSync));
+    const templatesToPush = state.templates.filter(t => t.dirty || (t.updated_at || 0) > lastSync);
+    const historyToPush = state.history.filter(h => h.dirty || (h.updated_at || 0) > lastSync);
     
     let settingsToPush = null;
-    if ((state.settings.updated_at || 0) > lastSync) {
+    if (state.settings.dirty || (state.settings.updated_at || 0) > lastSync) {
       settingsToPush = {
         unit: state.settings.unit,
         default_rest: state.settings.defaultRest,
@@ -3886,6 +4002,17 @@ async function syncData() {
       }
       if (!pushRes.ok) {
         throw new Error("Push sync failed");
+      }
+      const pushData = await pushRes.json();
+      if (pushData.success && pushData.synced_at) {
+        exercisesToPush.forEach(ex => { ex.updated_at = pushData.synced_at; delete ex.dirty; });
+        templatesToPush.forEach(t => { t.updated_at = pushData.synced_at; delete t.dirty; });
+        historyToPush.forEach(h => { h.updated_at = pushData.synced_at; delete h.dirty; });
+        if (settingsToPush) {
+          state.settings.updated_at = pushData.synced_at;
+          delete state.settings.dirty;
+        }
+        saveAllState();
       }
     }
 
@@ -4055,17 +4182,20 @@ function switchAuthTab(tab) {
   const signupTab = document.getElementById("btn-tab-signup");
   const submitBtn = document.getElementById("btn-auth-submit");
   const title = document.getElementById("auth-modal-title");
+  const nameGroup = document.getElementById("group-auth-name");
 
   if (tab === "login") {
     loginTab.classList.add("active");
     signupTab.classList.remove("active");
     submitBtn.textContent = "Login";
     title.textContent = "Cloud Login";
+    if (nameGroup) nameGroup.classList.add("hidden");
   } else {
     loginTab.classList.remove("active");
     signupTab.classList.add("active");
     submitBtn.textContent = "Sign Up";
     title.textContent = "Create Cloud Account";
+    if (nameGroup) nameGroup.classList.remove("hidden");
   }
 }
 
@@ -4089,12 +4219,23 @@ async function handleAuthSubmit() {
 
   try {
     const route = activeAuthTab === "login" ? "/api/auth/login" : "/api/auth/signup";
+    const payload = { email, password };
+    
+    if (activeAuthTab === "signup") {
+      const nameInput = document.getElementById("input-auth-name");
+      const nameVal = nameInput ? nameInput.value.trim() : "";
+      if (!nameVal) {
+        throw new Error("Full Name is required.");
+      }
+      payload.name = nameVal;
+    }
+
     const response = await fetch(`${API_BASE_URL}${route}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
@@ -4106,6 +4247,7 @@ async function handleAuthSubmit() {
     state.auth = {
       email: data.email,
       token: data.token,
+      name: data.name || "",
       lastSyncTime: 0,
       isAdmin: !!data.isAdmin
     };
@@ -4738,6 +4880,8 @@ function runSplashLoadingSequence() {
               document.getElementById("auth-error-msg").classList.add("hidden");
               document.getElementById("input-auth-email").value = "";
               document.getElementById("input-auth-password").value = "";
+              const nameInput = document.getElementById("input-auth-name");
+              if (nameInput) nameInput.value = "";
               switchAuthTab("login");
             }
           }
@@ -4919,7 +5063,8 @@ function setupAiCoachAndRecoveryListeners() {
             category: ex.category || "Dumbbell",
             instructions: "Generated by AI Coach.",
             updated_at: Date.now(),
-            deleted: 0
+            deleted: 0,
+            dirty: 1
           };
           state.exercises.push(newEx);
         }
@@ -4942,7 +5087,8 @@ function setupAiCoachAndRecoveryListeners() {
         notes: currentGeneratedWorkout.notes || "",
         exercises: exercisesMapped,
         updated_at: Date.now(),
-        deleted: 0
+        deleted: 0,
+        dirty: 1
       };
 
       state.templates.push(newTmpl);

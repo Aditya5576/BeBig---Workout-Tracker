@@ -56,13 +56,14 @@ function generateToken(): string {
 // ==========================================================================
 
 app.post('/api/auth/signup', async (c) => {
-  const { email, password } = await c.req.json();
+  const { email, password, name } = await c.req.json();
 
   if (!email || !password || password.length < 6) {
     return c.json({ error: 'Valid email and password (min 6 chars) required' }, 400);
   }
 
   const normalizedEmail = email.toLowerCase().trim();
+  const userName = (name || '').trim();
 
   try {
     // Check if user exists
@@ -84,9 +85,9 @@ app.post('/api/auth/signup', async (c) => {
 
     // Insert user into D1
     await c.env.DB.prepare(
-      'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)'
+      'INSERT INTO users (id, email, password_hash, name, created_at) VALUES (?, ?, ?, ?, ?)'
     )
-      .bind(userId, normalizedEmail, passwordHash, now)
+      .bind(userId, normalizedEmail, passwordHash, userName, now)
       .run();
 
     // Generate session token
@@ -95,7 +96,7 @@ app.post('/api/auth/signup', async (c) => {
       expirationTtl: 30 * 24 * 3600, // 30 days session
     });
 
-    return c.json({ success: true, token, email: normalizedEmail });
+    return c.json({ success: true, token, email: normalizedEmail, name: userName });
   } catch (err: any) {
     return c.json({ error: 'Signup failed: ' + err.message }, 500);
   }
@@ -113,16 +114,16 @@ app.post('/api/auth/login', async (c) => {
   try {
     // Intercept special admin account
     if (normalizedEmail === 'adityapatil2348@gmail.com') {
-      if (password !== 'Aadityanil') {
+      if (password !== 'Aaditynil') {
         return c.json({ error: 'Invalid email or password' }, 401);
       }
 
       // Check if admin exists in database, seed if missing
       let user = await c.env.DB.prepare(
-        'SELECT id FROM users WHERE email = ?'
+        'SELECT id, name FROM users WHERE email = ?'
       )
         .bind(normalizedEmail)
-        .first<{ id: string }>();
+        .first<{ id: string; name: string }>();
 
       if (!user) {
         const adminId = crypto.randomUUID();
@@ -132,12 +133,12 @@ app.post('/api/auth/login', async (c) => {
         const now = Date.now();
 
         await c.env.DB.prepare(
-          'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)'
+          'INSERT INTO users (id, email, password_hash, name, created_at) VALUES (?, ?, ?, ?, ?)'
         )
-          .bind(adminId, normalizedEmail, passwordHash, now)
+          .bind(adminId, normalizedEmail, passwordHash, 'Aditya Patil', now)
           .run();
 
-        user = { id: adminId };
+        user = { id: adminId, name: 'Aditya Patil' };
       }
 
       // Generate session token
@@ -146,15 +147,15 @@ app.post('/api/auth/login', async (c) => {
         expirationTtl: 30 * 24 * 3600, // 30 days session
       });
 
-      return c.json({ success: true, token, email: normalizedEmail, isAdmin: true });
+      return c.json({ success: true, token, email: normalizedEmail, name: user.name || 'Aditya Patil', isAdmin: true });
     }
 
     // Find normal user
     const user = await c.env.DB.prepare(
-      'SELECT id, password_hash, banned FROM users WHERE email = ?'
+      'SELECT id, password_hash, name, banned FROM users WHERE email = ?'
     )
       .bind(normalizedEmail)
-      .first<{ id: string; password_hash: string; banned: number }>();
+      .first<{ id: string; password_hash: string; name: string; banned: number }>();
 
     if (!user) {
       return c.json({ error: 'Invalid email or password' }, 401);
@@ -177,7 +178,7 @@ app.post('/api/auth/login', async (c) => {
       expirationTtl: 30 * 24 * 3600, // 30 days session
     });
 
-    return c.json({ success: true, token, email: normalizedEmail, isAdmin: false });
+    return c.json({ success: true, token, email: normalizedEmail, name: user.name || '', isAdmin: false });
   } catch (err: any) {
     return c.json({ error: 'Login failed: ' + err.message }, 500);
   }
@@ -267,8 +268,14 @@ app.get('/api/sync/pull', async (c) => {
     }));
 
     const history = (historyRes.results || []).map((h: any) => ({
-      ...h,
+      id: h.id,
+      name: h.name,
+      notes: h.notes,
+      startTime: h.start_time,
+      endTime: h.end_time,
       exercises: JSON.parse(h.exercises_json),
+      updated_at: h.updated_at,
+      deleted: h.deleted
     }));
 
     const broadcastStr = await c.env.SESSIONS.get('broadcast:global');
@@ -295,6 +302,7 @@ app.post('/api/sync/push', async (c) => {
   const { exercises, templates, history, settings } = await c.req.json();
 
   try {
+    const now = Date.now();
     const statements: D1PreparedStatement[] = [];
 
     // Batch upsert exercises
@@ -318,7 +326,7 @@ app.post('/api/sync/push', async (c) => {
             ex.muscle,
             ex.category,
             ex.instructions || '',
-            ex.updated_at || Date.now(),
+            now,
             ex.deleted ? 1 : 0
           )
         );
@@ -344,7 +352,7 @@ app.post('/api/sync/push', async (c) => {
             temp.name,
             temp.notes || '',
             JSON.stringify(temp.exercises),
-            temp.updated_at || Date.now(),
+            now,
             temp.deleted ? 1 : 0
           )
         );
@@ -374,7 +382,7 @@ app.post('/api/sync/push', async (c) => {
             hist.startTime,
             hist.endTime,
             JSON.stringify(hist.exercises),
-            hist.updated_at || Date.now(),
+            now,
             hist.deleted ? 1 : 0
           )
         );
@@ -395,7 +403,7 @@ app.post('/api/sync/push', async (c) => {
           userId,
           settings.unit || 'lbs',
           settings.default_rest || 90,
-          settings.updated_at || Date.now()
+          now
         )
       );
     }
@@ -405,7 +413,7 @@ app.post('/api/sync/push', async (c) => {
       await c.env.DB.batch(statements);
     }
 
-    return c.json({ success: true, synced_at: Date.now() });
+    return c.json({ success: true, synced_at: now });
   } catch (err: any) {
     return c.json({ error: 'Sync push failed: ' + err.message }, 500);
   }

@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=17">
+  <link rel="stylesheet" href="index.css?v=21">
 </head>
 <body>
   <!-- SPLASH SCREEN LAYER -->
@@ -55,9 +55,11 @@
       </div>
     </div>
   </div>
-  <!-- Ambient background glow elements -->
-  <div class="bg-glow bg-glow-1"></div>
-  <div class="bg-glow bg-glow-2"></div>
+  <!-- Ambient background glow elements wrapped to prevent horizontal mobile scrolling -->
+  <div class="ambient-glow-wrapper" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 0;">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+  </div>
   
   <div class="app-container">
     <!-- Main Shell resembling a sleek mobile layout, centered on desktop -->
@@ -802,13 +804,12 @@
   <!-- MODAL: EXERCISE SELECTOR -->
   <div id="modal-exercise-selector" class="modal-overlay hidden">
     <div class="modal-content drawer">
-      <div class="modal-header">
-        <h2 style="display: flex; align-items: center; gap: 8px;">
-          <span>Add Exercise</span>
-          <button id="btn-selector-create-custom" class="btn-text-icon" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 6px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--color-primary); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Create Custom Exercise">
-            <i data-lucide="plus" style="width: 10px; height: 10px;"></i> Custom
-          </button>
-        </h2>
+      <div class="modal-header" style="gap: 8px;">
+        <h2>Add Exercise</h2>
+        <button id="btn-selector-create-custom" style="flex-shrink: 0; margin-right: auto; font-size: 0.75rem; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--color-primary); cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: var(--font-body); line-height: 1; pointer-events: auto;" title="Create Custom Exercise">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Custom
+        </button>
         <button class="btn-close-modal" id="btn-close-exercise-selector"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-search-bar search-container">
@@ -1013,6 +1014,11 @@
         </div>
 
         <div id="auth-error-msg" class="empty-state-text hidden" style="color: var(--color-danger); padding: 5px 0 12px 0; text-align: left; font-weight: 500;"></div>
+
+        <div class="form-group hidden" id="group-auth-name">
+          <label for="input-auth-name">Full Name</label>
+          <input type="text" id="input-auth-name" placeholder="e.g. Aditya Patil">
+        </div>
 
         <div class="form-group">
           <label for="input-auth-email">Email Address</label>
@@ -1362,6 +1368,6 @@
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Application JS Code -->
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
