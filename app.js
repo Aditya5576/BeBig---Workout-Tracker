@@ -3690,6 +3690,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (confirm("Are you sure you want to log out from BeBig Cloud?")) {
           // Clear credentials
           state.auth = { email: null, token: null, lastSyncTime: 0 };
+          localStorage.removeItem("bebig_guest_mode");
           
           // Reset local cache to clean defaults
           state.exercises = [...DEFAULT_EXERCISES];
@@ -3724,6 +3725,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnCloseCloudAuth = document.getElementById("btn-close-cloud-auth");
   if (btnCloseCloudAuth) {
     btnCloseCloudAuth.addEventListener("click", () => {
+      localStorage.setItem("bebig_guest_mode", "true");
       document.getElementById("modal-cloud-auth").classList.add("hidden");
     });
   }
@@ -3731,6 +3733,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnAuthGuest = document.getElementById("btn-auth-guest");
   if (btnAuthGuest) {
     btnAuthGuest.addEventListener("click", () => {
+      localStorage.setItem("bebig_guest_mode", "true");
       document.getElementById("modal-cloud-auth").classList.add("hidden");
     });
   }
@@ -4266,6 +4269,7 @@ async function handleAuthSubmit() {
       lastSyncTime: 0,
       isAdmin: !!data.isAdmin
     };
+    localStorage.removeItem("bebig_guest_mode");
     saveAllState();
 
     document.getElementById("modal-cloud-auth").classList.add("hidden");
@@ -4858,6 +4862,7 @@ function handleBannedUserLogout(msg) {
   const alertMsg = msg || "🚫 Access Blocked: Your account has been banned/disabled by the administrator.";
   alert(alertMsg);
   state.auth = { email: null, token: null, lastSyncTime: 0, isAdmin: false };
+  localStorage.removeItem("bebig_guest_mode");
   saveAllState();
   updateCloudUI();
   switchView("settings");
@@ -4888,7 +4893,7 @@ function runSplashLoadingSequence() {
         setTimeout(() => {
           splash.classList.add("hidden");
           
-          if (!state.auth || !state.auth.token) {
+          if ((!state.auth || !state.auth.token) && localStorage.getItem("bebig_guest_mode") !== "true") {
             const authModal = document.getElementById("modal-cloud-auth");
             if (authModal) {
               authModal.classList.remove("hidden");
