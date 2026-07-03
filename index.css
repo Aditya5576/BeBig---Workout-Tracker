@@ -249,7 +249,7 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  padding: 12px 20px calc(80px + env(safe-area-inset-bottom, 0px)) 20px; /* space for absolute navbar + safe area */
+  padding: 20px 20px calc(90px + env(safe-area-inset-bottom, 0px)) 20px; /* space for absolute navbar + safe area */
   overflow-y: auto;
   opacity: 0;
   pointer-events: none;
@@ -270,7 +270,7 @@ html, body {
 }
 
 .phone-shell.mini-workout-active .app-view {
-  padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px));
 }
 
 .view-title {
@@ -659,17 +659,18 @@ html, body {
 .select-dropdown:focus { border-color: var(--color-primary); }
 
 .form-group {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .form-group label {
   display: block;
   font-weight: 500;
   font-size: 0.85rem;
   color: var(--text-muted);
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 .form-group input[type="text"],
 .form-group input[type="password"],
+.form-group input[type="number"],
 .form-group textarea {
   width: 100%;
   background-color: var(--bg-card);
@@ -683,9 +684,13 @@ html, body {
 }
 .form-group input[type="text"]:focus,
 .form-group input[type="password"]:focus,
+.form-group input[type="number"]:focus,
 .form-group textarea:focus {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-glow);
+}
+.form-group .select-dropdown {
+  width: 100%;
 }
 
 .badge {
@@ -1012,13 +1017,13 @@ html, body {
   font-family: var(--font-heading);
   font-weight: 700;
   border-radius: 50%;
-  width: 28px; /* Increased from 24px */
-  height: 28px; /* Increased from 24px */
+  width: 30px;
+  height: 30px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.78rem; /* Increased from 0.72rem */
+  font-size: 0.8rem;
   cursor: pointer;
   border: 1px solid var(--border-light);
   transition: all var(--transition-smooth);
@@ -1085,8 +1090,8 @@ html, body {
 
 /* Deluxe Circular Complete Checkbox */
 .set-checkmark {
-  width: 26px; /* Increased from 22px */
-  height: 26px; /* Increased from 22px */
+  width: 30px;
+  height: 30px;
   background: var(--bg-input);
   border: 1px solid var(--border-light);
   border-radius: 50%;
@@ -1100,8 +1105,8 @@ html, body {
 }
 .set-checkmark:hover { border-color: var(--color-success); }
 .set-checkmark i {
-  width: 14px; /* Increased from 12px */
-  height: 14px; /* Increased from 12px */
+  width: 16px;
+  height: 16px;
   stroke-width: 3;
 }
 .set-table-row.completed .set-checkmark {
@@ -1120,13 +1125,13 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   margin: 0 auto;
   transition: color var(--transition-smooth);
 }
 .btn-delete-set:hover { color: var(--color-danger); }
-.btn-delete-set i { width: 14px; height: 14px; }
+.btn-delete-set i { width: 16px; height: 16px; }
 
 .btn-add-set {
   background: none;
@@ -1377,10 +1382,10 @@ html, body {
   align-items: center;
 }
 .modal-content.standard {
-  width: 88%;
-  max-width: 340px;
-  max-height: 80%;
-  border-radius: 16px;
+  width: 92%;
+  max-width: 420px;
+  max-height: 85%;
+  border-radius: 20px;
   animation: pop-modal var(--transition-smooth);
 }
 .modal-content.standard.admin-detail {
@@ -1435,13 +1440,22 @@ html, body {
    ========================================================================== */
 .category-filters {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 6px 20px 10px 20px;
   scrollbar-width: none;
   flex-shrink: 0;
 }
 .category-filters::-webkit-scrollbar { display: none; }
+
+.app-view .category-filters {
+  margin: 4px -20px 12px -20px;
+  padding: 4px 20px;
+}
+
+.modal-content .category-filters {
+  margin: 4px -18px 12px -18px;
+  padding: 4px 18px;
+}
 
 .filter-chip {
   background: var(--bg-card);
@@ -1467,7 +1481,7 @@ html, body {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 12px;
 }
 
 .exercises-list-container {
