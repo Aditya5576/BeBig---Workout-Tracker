@@ -1169,6 +1169,20 @@ function renderActiveWorkoutUI() {
       const isCompleted = set.completed;
       const typeDisplay = set.type === "N" ? (setIdx + 1) : set.type;
       
+      // Find set-specific previous value from history
+      let previousDisplay = "—";
+      for (let i = state.history.length - 1; i >= 0; i--) {
+        const historicalWorkout = state.history[i];
+        const targetEx = historicalWorkout.exercises.find(e => e.exerciseId === activeEx.exerciseId);
+        if (targetEx && targetEx.sets && targetEx.sets.length > 0) {
+          const histSet = targetEx.sets[setIdx];
+          if (histSet && histSet.weight !== undefined && histSet.reps !== undefined && histSet.weight !== null && histSet.reps !== null && histSet.weight !== "" && histSet.reps !== "") {
+            previousDisplay = `${histSet.weight} × ${histSet.reps}`;
+          }
+          break;
+        }
+      }
+      
       // Check for progressive overload suggestion
       let showOverloadBadge = false;
       const unit = state.settings.unit || "lbs";
@@ -1208,7 +1222,7 @@ function renderActiveWorkoutUI() {
               ${typeDisplay}
             </button>
           </td>
-          <td class="set-previous">${set.previous || '—'}</td>
+          <td class="set-previous">${previousDisplay}</td>
           <td class="set-input-cell">
             <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
             ${badgeHTML}

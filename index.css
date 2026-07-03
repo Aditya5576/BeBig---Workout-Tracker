@@ -135,7 +135,7 @@ html, body {
    APP HEADER
    ========================================================================== */
 .app-header {
-  padding: 16px 20px 12px 20px;
+  padding: 20px 20px 16px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -143,7 +143,7 @@ html, body {
   border-bottom: 1px solid var(--border-light);
   z-index: 10;
   flex-shrink: 0;
-  padding-top: env(safe-area-inset-top, 16px);
+  padding-top: calc(env(safe-area-inset-top, 16px) + 4px);
 }
 .header-left-group {
   display: flex;
@@ -719,7 +719,7 @@ html, body {
 .templates-grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .template-card {
@@ -1154,6 +1154,19 @@ html, body {
 }
 .btn-add-set i { width: 13px; height: 13px; }
 
+.set-type-legend {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px dashed var(--border-light);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  margin-bottom: 6px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  text-align: left;
+}
+
 .workout-control-buttons {
   margin-top: 18px;
   display: flex;
@@ -1426,6 +1439,9 @@ html, body {
   overflow-y: auto;
   padding: 0 18px 18px 18px;
   scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .modal-list::-webkit-scrollbar { display: none; }
 
@@ -1487,7 +1503,7 @@ html, body {
 .exercises-list-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   margin-bottom: 15px;
 }
 
@@ -1549,7 +1565,7 @@ html, body {
 .history-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   padding-bottom: 15px;
 }
 
@@ -1737,7 +1753,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .settings-row.clickable {
   cursor: pointer;
