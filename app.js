@@ -1216,31 +1216,31 @@ function renderActiveWorkoutUI() {
         : "";
 
       rowsHTML += `
-        <tr class="set-table-row ${isCompleted ? 'completed' : ''}" data-set-index="${setIdx}">
-          <td>
+        <div class="set-table-row ${isCompleted ? 'completed' : ''}" data-set-index="${setIdx}">
+          <div>
             <button class="set-type-tag ${set.type}" title="Set Type: Warmup, Drop, Failure, Normal" data-action="toggle-set-type">
               ${typeDisplay}
             </button>
-          </td>
-          <td class="set-previous">${previousDisplay}</td>
-          <td class="set-input-cell">
+          </div>
+          <div class="set-previous">${previousDisplay}</div>
+          <div class="set-input-cell">
             <input type="number" class="input-set-weight" placeholder="0" min="0" step="any" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
             ${badgeHTML}
-          </td>
-          <td class="set-input-cell">
+          </div>
+          <div class="set-input-cell">
             <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined && set.reps !== null && set.reps !== '' ? set.reps : ''}" data-field="reps">
-          </td>
-          <td>
+          </div>
+          <div>
             <div class="set-checkmark" data-action="toggle-complete">
               <i data-lucide="check"></i>
             </div>
-          </td>
-          <td>
+          </div>
+          <div>
             <button class="btn-delete-set" data-action="delete-set" title="Delete set">
               <i data-lucide="trash-2"></i>
             </button>
-          </td>
-        </tr>
+          </div>
+        </div>
       `;
     });
 
@@ -1260,21 +1260,19 @@ function renderActiveWorkoutUI() {
         </div>
       </div>
       
-      <table class="set-table">
-        <thead>
-          <tr class="set-table-header">
-            <th>Set</th>
-            <th>Prev</th>
-            <th>Weight</th>
-            <th>Reps</th>
-            <th><i data-lucide="check" style="width:12px;height:12px;margin:0 auto;stroke-width:3;"></i></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody class="sets-tbody">
+      <div class="set-table">
+        <div class="set-table-header">
+          <div>Set</div>
+          <div>Prev</div>
+          <div>Weight</div>
+          <div>Reps</div>
+          <div style="display: flex; justify-content: center;"><i data-lucide="check" style="width:12px;height:12px;stroke-width:3;"></i></div>
+          <div></div>
+        </div>
+        <div class="sets-tbody">
           ${rowsHTML}
-        </tbody>
-      </table>
+        </div>
+      </div>
 
       <button class="btn-add-set" data-action="add-set">
         <i data-lucide="plus"></i> Add Set
@@ -2731,24 +2729,24 @@ function renderTemplateEditorExercises() {
     activeEx.sets.forEach((set, setIdx) => {
       const typeDisplay = set.type === "N" ? (setIdx + 1) : set.type;
       rowsHTML += `
-        <tr class="set-table-row" data-set-index="${setIdx}">
-          <td>
+        <div class="set-table-row template-editor-row" data-set-index="${setIdx}">
+          <div>
             <button class="set-type-tag ${set.type}" data-action="toggle-editor-set-type">
               ${typeDisplay}
             </button>
-          </td>
-          <td class="set-input-cell">
+          </div>
+          <div class="set-input-cell">
             <input type="number" class="input-set-weight" placeholder="0" min="0" value="${set.weight !== undefined && set.weight !== null && set.weight !== '' ? set.weight : ''}" data-field="weight">
-          </td>
-          <td class="set-input-cell">
+          </div>
+          <div class="set-input-cell">
             <input type="number" class="input-set-reps" placeholder="0" min="0" value="${set.reps !== undefined && set.reps !== null && set.reps !== '' ? set.reps : ''}" data-field="reps">
-          </td>
-          <td>
+          </div>
+          <div>
             <button class="btn-delete-set" data-action="delete-editor-set" title="Delete set">
               <i data-lucide="trash-2"></i>
             </button>
-          </td>
-        </tr>
+          </div>
+        </div>
       `;
     });
 
@@ -2773,19 +2771,17 @@ function renderTemplateEditorExercises() {
         </div>
       </div>
       
-      <table class="set-table">
-        <thead>
-          <tr class="set-table-editor-header">
-            <th>Set</th>
-            <th>Weight (${currentUnit})</th>
-            <th>Reps</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody class="sets-tbody-editor">
+      <div class="set-table">
+        <div class="set-table-header template-editor-row">
+          <div>Set</div>
+          <div>Weight (${currentUnit})</div>
+          <div>Reps</div>
+          <div></div>
+        </div>
+        <div class="sets-tbody-editor">
           <!-- Dynamically loaded -->
-        </tbody>
-      </table>
+        </div>
+      </div>
 
       <button class="btn-add-set" data-action="add-editor-set">
         <i data-lucide="plus"></i> Add Set

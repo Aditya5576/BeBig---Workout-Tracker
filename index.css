@@ -3838,3 +3838,28 @@ html, body {
   border-color: rgba(16, 185, 129, 0.22) !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2), 0 0 15px rgba(16, 185, 129, 0.03);
 }
+
+.template-editor-row {
+  grid-template-columns: 32px 1fr 1fr 30px !important;
+}
+
+/* responsive app header to prevent collision/overlaps on small mobile devices */
+@media (max-width: 380px) {
+  .app-header {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .active-timer-widget {
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    gap: 4px;
+  }
+  .profile-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+  }
+}
