@@ -56,6 +56,12 @@ html, body {
   width: 100%;
   overflow: hidden;
   user-select: none;
+  touch-action: manipulation; /* Disable double-tap zoom globally on page body */
+}
+
+/* Optimize touch responsiveness and eliminate tap delays on interactive elements */
+button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .set-type-tag, .profile-avatar, .active-timer-widget {
+  touch-action: manipulation;
 }
 
 /* Ambient glow bubbles in background */
