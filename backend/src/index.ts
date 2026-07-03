@@ -51,6 +51,25 @@ function generateToken(): string {
     .join('');
 }
 
+async function addActivityLog(sessions: KVNamespace, email: string, message: string) {
+  const currentLogsStr = await sessions.get('activity:logs');
+  let logs: any[] = [];
+  if (currentLogsStr) {
+    try {
+      logs = JSON.parse(currentLogsStr);
+    } catch (e) {}
+  }
+  logs.unshift({
+    email,
+    message,
+    timestamp: Date.now()
+  });
+  if (logs.length > 50) {
+    logs = logs.slice(0, 50);
+  }
+  await sessions.put('activity:logs', JSON.stringify(logs));
+}
+
 // ==========================================================================
 // AUTHENTICATION ROUTES
 // ==========================================================================
@@ -96,6 +115,8 @@ app.post('/api/auth/signup', async (c) => {
       expirationTtl: 30 * 24 * 3600, // 30 days session
     });
 
+    await addActivityLog(c.env.SESSIONS, normalizedEmail, `${userName || normalizedEmail} registered a new account!`);
+
     return c.json({ success: true, token, email: normalizedEmail, name: userName });
   } catch (err: any) {
     return c.json({ error: 'Signup failed: ' + err.message }, 500);
@@ -114,7 +135,7 @@ app.post('/api/auth/login', async (c) => {
   try {
     // Intercept special admin account
     if (normalizedEmail === 'adityapatil2348@gmail.com') {
-      if (password !== 'Aaditynil') {
+      if (password !== 'Aditya@admin') {
         return c.json({ error: 'Invalid email or password' }, 401);
       }
 
@@ -217,6 +238,42 @@ app.use('/api/sync/*', async (c, next) => {
 
   c.set('userId', userId);
   await next();
+});
+
+// Heartbeat to update online status
+app.post('/api/sync/heartbeat', async (c) => {
+  const userId = c.var.userId;
+  try {
+    const { activeWorkoutName, currentExerciseName, currentMuscle, deviceInfo } = await c.req.json();
+    
+    // Fetch user details
+    const user = await c.env.DB.prepare('SELECT email, name FROM users WHERE id = ?').bind(userId).first<{ email: string; name: string }>();
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+    
+    const userAgent = c.req.header('User-Agent') || 'Unknown';
+    const ipAddress = c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || '127.0.0.1';
+    
+    // Save to KV with 30s TTL
+    const activeState = {
+      userId,
+      email: user.email,
+      name: user.name || '',
+      activeWorkoutName: activeWorkoutName || null,
+      currentExerciseName: currentExerciseName || null,
+      currentMuscle: currentMuscle || null,
+      deviceInfo: deviceInfo || userAgent,
+      ipAddress,
+      timestamp: Date.now()
+    };
+    
+    await c.env.SESSIONS.put(`active-user:${userId}`, JSON.stringify(activeState), { expirationTtl: 30 });
+    
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: 'Heartbeat failed: ' + err.message }, 500);
+  }
 });
 
 // ==========================================================================
@@ -413,6 +470,19 @@ app.post('/api/sync/push', async (c) => {
       await c.env.DB.batch(statements);
     }
 
+    // Write activity log for any history created/pushed
+    if (Array.isArray(history) && history.length > 0) {
+      const user = await c.env.DB.prepare('SELECT email, name FROM users WHERE id = ?').bind(userId).first<{ email: string; name: string }>();
+      if (user) {
+        for (const hist of history) {
+          if (!hist.deleted) {
+            const logMsg = `${user.name || user.email} completed workout: "${hist.name}" (${hist.exercises ? hist.exercises.length : 0} exercises)`;
+            await addActivityLog(c.env.SESSIONS, user.email, logMsg);
+          }
+        }
+      }
+    }
+
     return c.json({ success: true, synced_at: now });
   } catch (err: any) {
     return c.json({ error: 'Sync push failed: ' + err.message }, 500);
@@ -462,6 +532,7 @@ app.get('/api/admin/clients', async (c) => {
       SELECT 
         u.id, 
         u.email, 
+        u.name,
         u.created_at,
         u.banned,
         (SELECT COUNT(*) FROM history h WHERE h.user_id = u.id AND h.deleted = 0) as workouts_count,
@@ -475,6 +546,66 @@ app.get('/api/admin/clients', async (c) => {
     return c.json({ success: true, clients: res.results || [] });
   } catch (err: any) {
     return c.json({ error: 'Failed to fetch clients: ' + err.message }, 500);
+  }
+});
+
+// Fetch online users active sessions
+app.get('/api/admin/online', async (c) => {
+  try {
+    const list = await c.env.SESSIONS.list({ prefix: 'active-user:' });
+    const onlineUsers: any[] = [];
+    for (const key of list.keys) {
+      const val = await c.env.SESSIONS.get(key.name);
+      if (val) {
+        try {
+          onlineUsers.push(JSON.parse(val));
+        } catch (e) {}
+      }
+    }
+    return c.json({ success: true, online: onlineUsers });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch online users: ' + err.message }, 500);
+  }
+});
+
+// Fetch network-wide activity logs
+app.get('/api/admin/logs', async (c) => {
+  try {
+    const logsStr = await c.env.SESSIONS.get('activity:logs');
+    const logs = logsStr ? JSON.parse(logsStr) : [];
+    return c.json({ success: true, logs });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch activity logs: ' + err.message }, 500);
+  }
+});
+
+// Force reset client password
+app.post('/api/admin/client/:id/password', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    const { password } = await c.req.json();
+    if (!password || password.length < 6) {
+      return c.json({ error: 'New password must be at least 6 characters.' }, 400);
+    }
+    
+    // Verify client exists
+    const client = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(clientId).first<{ email: string }>();
+    if (!client) {
+      return c.json({ error: 'Client not found.' }, 404);
+    }
+    
+    const salt = generateSalt();
+    const hash = await hashPassword(password, salt);
+    const passwordHash = `${salt}:${hash}`;
+    
+    await c.env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, clientId).run();
+    
+    // Write activity log
+    await addActivityLog(c.env.SESSIONS, 'system@bebig.com', `Admin forcefully reset password for ${client.email}`);
+    
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to reset password: ' + err.message }, 500);
   }
 });
 
@@ -515,6 +646,12 @@ app.post('/api/admin/client/:id/ban', async (c) => {
       .bind(bannedVal, clientId)
       .run();
 
+    const client = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(clientId).first<{ email: string }>();
+    if (client) {
+      const statusStr = bannedVal === 1 ? 'banned' : 'unbanned';
+      await addActivityLog(c.env.SESSIONS, 'system@bebig.com', `Admin ${statusStr} user ${client.email}`);
+    }
+
     return c.json({ success: true, banned: bannedVal });
   } catch (err: any) {
     return c.json({ error: 'Failed to update ban status: ' + err.message }, 500);
@@ -525,6 +662,11 @@ app.post('/api/admin/client/:id/ban', async (c) => {
 app.delete('/api/admin/client/:id', async (c) => {
   const clientId = c.req.param('id');
   try {
+    const client = await c.env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(clientId).first<{ email: string }>();
+    if (client) {
+      await addActivityLog(c.env.SESSIONS, 'system@bebig.com', `Admin permanently deleted user account ${client.email}`);
+    }
+
     const statements = [
       c.env.DB.prepare('DELETE FROM templates WHERE user_id = ?').bind(clientId),
       c.env.DB.prepare('DELETE FROM history WHERE user_id = ?').bind(clientId),

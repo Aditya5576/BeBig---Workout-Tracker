@@ -279,6 +279,7 @@ function formatDuration(sec) {
 
 function startWorkoutTimer() {
   if (workoutTimerId) clearInterval(workoutTimerId);
+  lastHeartbeatTime = 0; // reset heartbeat timer to trigger immediately
   
   const timerWidget = document.getElementById("active-timer-widget");
   const widgetText = document.getElementById("widget-timer-text");
@@ -292,6 +293,14 @@ function startWorkoutTimer() {
       clearInterval(workoutTimerId);
       return;
     }
+
+    // Trigger active heartbeat ping every 10 seconds
+    const now = Date.now();
+    if (now - lastHeartbeatTime >= 10000) {
+      lastHeartbeatTime = now;
+      sendActiveHeartbeat();
+    }
+
     const elapsed = Math.floor((Date.now() - state.activeWorkout.startTime) / 1000);
     const timeStr = formatDuration(elapsed);
 
@@ -2969,6 +2978,9 @@ function deleteWorkoutTemplate(templateId) {
 // ==========================================================================
 
 function switchView(viewName) {
+  if (viewName !== "admin") {
+    stopLiveMonitorPolling();
+  }
   // Toggle Nav buttons
   document.querySelectorAll(".app-nav .nav-item").forEach(item => {
     if (item.dataset.view === viewName) {
@@ -3813,13 +3825,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Admin Tab togglers (Clients Manager vs Live Monitor)
+  const btnAdminTabClients = document.getElementById("btn-admin-tab-clients");
+  const btnAdminTabLive = document.getElementById("btn-admin-tab-live");
+  const adminViewClientsContainer = document.getElementById("admin-view-clients-container");
+  const adminViewLiveContainer = document.getElementById("admin-view-live-container");
+
+  if (btnAdminTabClients && btnAdminTabLive) {
+    btnAdminTabClients.addEventListener("click", () => {
+      btnAdminTabClients.classList.add("active");
+      btnAdminTabLive.classList.remove("active");
+      if (adminViewClientsContainer) adminViewClientsContainer.classList.remove("hidden");
+      if (adminViewLiveContainer) adminViewLiveContainer.classList.add("hidden");
+      stopLiveMonitorPolling();
+    });
+
+    btnAdminTabLive.addEventListener("click", () => {
+      btnAdminTabLive.classList.add("active");
+      btnAdminTabClients.classList.remove("active");
+      if (adminViewLiveContainer) adminViewLiveContainer.classList.remove("hidden");
+      if (adminViewClientsContainer) adminViewClientsContainer.classList.add("hidden");
+      startLiveMonitorPolling();
+    });
+  }
+
+  // Force Reset Password Submit
+  const btnAdminResetPasswordSubmit = document.getElementById("btn-admin-reset-password-submit");
+  if (btnAdminResetPasswordSubmit) {
+    btnAdminResetPasswordSubmit.addEventListener("click", resetClientPassword);
+  }
+
+  // Filters and search input listeners
   const inputAdminSearch = document.getElementById("input-admin-client-search");
   if (inputAdminSearch) {
-    inputAdminSearch.addEventListener("input", (e) => {
-      const q = e.target.value.toLowerCase().trim();
-      const filtered = adminClients.filter(c => c.email.toLowerCase().includes(q));
-      renderAdminClientsList(filtered);
-    });
+    inputAdminSearch.addEventListener("input", filterAndRenderAdminClients);
+  }
+
+  const selectAdminFilter = document.getElementById("select-admin-filter");
+  if (selectAdminFilter) {
+    selectAdminFilter.addEventListener("change", filterAndRenderAdminClients);
+  }
+
+  const selectAdminSort = document.getElementById("select-admin-sort");
+  if (selectAdminSort) {
+    selectAdminSort.addEventListener("change", filterAndRenderAdminClients);
   }
 
   const selectAdminBlueprint = document.getElementById("admin-assign-template-select");
@@ -4363,8 +4412,15 @@ function renderAdminClientsList(clients) {
       });
     }
 
+    const isBanned = client.banned === 1;
+    const nameDisplay = client.name ? `${client.name} <span style="font-size:0.72rem; color:var(--text-dark); font-weight:normal;">(${client.email})</span>` : client.email;
+    const bannedBadge = isBanned ? `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.6rem; padding: 2px 6px; margin-left: 8px; vertical-align: middle; display: inline-block;">Banned</span>` : '';
+
     card.innerHTML = `
-      <div class="admin-client-email">${client.email}</div>
+      <div class="admin-client-email" style="display: flex; justify-content: space-between; align-items: center; width: 100%; word-break: break-all;">
+        <span>${nameDisplay}</span>
+        ${bannedBadge}
+      </div>
       <div class="admin-client-meta-grid">
         <div class="admin-client-meta-item">
           <span class="admin-client-meta-label">Workouts</span>
@@ -4384,8 +4440,8 @@ function renderAdminClientsList(clients) {
         </div>
       </div>
       <div class="admin-client-actions">
-        <button class="btn-admin-view-profile" data-id="${client.id}">
-          <i data-lucide="dumbbell"></i> Assign Custom Routine
+        <button class="btn-admin-view-profile" data-id="${client.id}" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <i data-lucide="shield-alert" style="width: 14px; height: 14px;"></i> Details / Manage
         </button>
       </div>
     `;
@@ -4423,6 +4479,12 @@ function openAdminClientDetailModal(client) {
   document.getElementById("admin-client-workouts-count").textContent = client.workouts_count || 0;
   document.getElementById("admin-client-templates-count").textContent = client.templates_count || 0;
   document.getElementById("admin-client-joined-date").textContent = new Date(client.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+  
+  const idEl = document.getElementById("admin-client-unique-id");
+  if (idEl) idEl.textContent = client.id;
+  
+  const passEl = document.getElementById("input-admin-reset-password");
+  if (passEl) passEl.value = "";
   
   let lastActiveText = "Never";
   if (client.last_workout_time) {
@@ -4815,6 +4877,201 @@ async function deleteClientAccount() {
 
   } catch (err) {
     alert("Error: " + err.message);
+  }
+}
+
+// --- SUPER ADMIN EXTENSIONS ---
+let liveMonitorIntervalId = null;
+let lastHeartbeatTime = 0;
+
+function filterAndRenderAdminClients() {
+  const q = document.getElementById("input-admin-client-search")?.value.toLowerCase().trim() || "";
+  const filterVal = document.getElementById("select-admin-filter")?.value || "all";
+  const sortVal = document.getElementById("select-admin-sort")?.value || "newest";
+
+  let filtered = [...adminClients];
+
+  // 1. Search by name or email
+  if (q) {
+    filtered = filtered.filter(c => {
+      const emailMatch = c.email.toLowerCase().includes(q);
+      const nameMatch = c.name ? c.name.toLowerCase().includes(q) : false;
+      return emailMatch || nameMatch;
+    });
+  }
+
+  // 2. Filter by status
+  if (filterVal === "active") {
+    filtered = filtered.filter(c => c.banned !== 1);
+  } else if (filterVal === "banned") {
+    filtered = filtered.filter(c => c.banned === 1);
+  }
+
+  // 3. Sort
+  if (sortVal === "newest") {
+    filtered.sort((a, b) => b.created_at - a.created_at);
+  } else if (sortVal === "active") {
+    filtered.sort((a, b) => {
+      const timeA = a.last_workout_time || 0;
+      const timeB = b.last_workout_time || 0;
+      return timeB - timeA;
+    });
+  }
+
+  renderAdminClientsList(filtered);
+}
+
+async function resetClientPassword() {
+  if (!selectedAdminClient) return;
+  const inputPass = document.getElementById("input-admin-reset-password");
+  if (!inputPass) return;
+  
+  const password = inputPass.value;
+  if (!password || password.length < 6) {
+    alert("Password must be at least 6 characters.");
+    return;
+  }
+  
+  if (!confirm(`Are you sure you want to forcefully reset the password for ${selectedAdminClient.email}?`)) {
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/client/${selectedAdminClient.id}/password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify({ password })
+    });
+    
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to reset password");
+    }
+    
+    alert("Password reset successfully!");
+    inputPass.value = "";
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+function startLiveMonitorPolling() {
+  if (liveMonitorIntervalId) clearInterval(liveMonitorIntervalId);
+  fetchLiveMonitorData(); // initial fetch
+  liveMonitorIntervalId = setInterval(fetchLiveMonitorData, 4000); // refresh every 4s
+}
+
+function stopLiveMonitorPolling() {
+  if (liveMonitorIntervalId) {
+    clearInterval(liveMonitorIntervalId);
+    liveMonitorIntervalId = null;
+  }
+}
+
+async function fetchLiveMonitorData() {
+  if (!state.auth || !state.auth.token || !state.auth.isAdmin) return;
+  
+  try {
+    // 1. Fetch online active users
+    const onlineRes = await fetch(`${API_BASE_URL}/api/admin/online`, {
+      headers: { "Authorization": `Bearer ${state.auth.token}` }
+    });
+    const onlineData = await onlineRes.json();
+    const onlineUsers = onlineData.online || [];
+    
+    // Render online streams list
+    const onlineList = document.getElementById("admin-online-users-list");
+    if (onlineList) {
+      if (onlineUsers.length === 0) {
+        onlineList.innerHTML = '<p class="empty-state-text" style="font-size: 0.75rem; text-align: center; color: var(--text-dark); padding: 15px 0;">No active workout sessions on the network right now.</p>';
+      } else {
+        onlineList.innerHTML = onlineUsers.map(u => {
+          return `
+            <div class="active-exercise-card" style="padding: 12px; margin-bottom: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                <div>
+                  <h4 style="font-family: var(--font-heading); font-size: 0.85rem; margin: 0; color: var(--text-main); font-weight: 600;">
+                    ${u.name || 'Guest User'} <span style="font-size: 0.7rem; color: var(--text-dark); font-weight: normal;">(${u.email})</span>
+                  </h4>
+                  <div style="font-size: 0.65rem; color: var(--text-dark); margin-top: 2px;">
+                    IP: ${u.ipAddress} | Dev: ${u.deviceInfo}
+                  </div>
+                </div>
+                <span class="badge pulse-dot" style="background: rgba(16, 185, 129, 0.15); color: var(--color-success); border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.6rem; padding: 2px 6px;">● Live</span>
+              </div>
+              <div style="background: rgba(255,255,255,0.015); border: 1px solid var(--border-light); border-radius: 8px; padding: 8px; font-size: 0.72rem; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="dumbbell" style="width: 14px; height: 14px; color: var(--color-primary);"></i>
+                <div>
+                  Workout: <strong style="color: var(--text-main);">${u.activeWorkoutName || 'Routine'}</strong><br/>
+                  Current: <strong style="color: var(--text-main);">${u.currentExerciseName || 'None'}</strong> (${u.currentMuscle || 'N/A'})
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+        if (window.lucide) window.lucide.createIcons();
+      }
+    }
+    
+    // 2. Fetch network activity logs
+    const logsRes = await fetch(`${API_BASE_URL}/api/admin/logs`, {
+      headers: { "Authorization": `Bearer ${state.auth.token}` }
+    });
+    const logsData = await logsRes.json();
+    const logs = logsData.logs || [];
+    
+    const logsContainer = document.getElementById("admin-terminal-logs");
+    if (logsContainer) {
+      if (logs.length === 0) {
+        logsContainer.textContent = "[system@bebig.com] Live terminal feed initialized. No activities logged yet.";
+      } else {
+        logsContainer.textContent = logs.map(l => {
+          const timeStr = new Date(l.timestamp).toLocaleTimeString();
+          return `[${timeStr}] ${l.message}`;
+        }).join("\n");
+      }
+    }
+  } catch (err) {
+    console.error("Error loading live monitor feeds:", err);
+  }
+}
+
+async function sendActiveHeartbeat() {
+  if (!state.activeWorkout || !state.auth || !state.auth.token) return;
+  
+  let currentExName = "No exercises yet";
+  let currentMuscleName = "N/A";
+  if (state.activeWorkout.exercises && state.activeWorkout.exercises.length > 0) {
+    const incompleteEx = state.activeWorkout.exercises.find(e => e.sets && e.sets.some(s => !s.completed));
+    const targetEx = incompleteEx || state.activeWorkout.exercises[state.activeWorkout.exercises.length - 1];
+    const exDetails = state.exercises.find(e => e.id === targetEx.exerciseId);
+    if (exDetails) {
+      currentExName = exDetails.name;
+      currentMuscleName = exDetails.muscle;
+    }
+  }
+  
+  const deviceInfo = window.innerWidth < 768 ? "Mobile App" : "Desktop Browser";
+  
+  try {
+    await fetch(`${API_BASE_URL}/api/sync/heartbeat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify({
+        activeWorkoutName: state.activeWorkout.name,
+        currentExerciseName: currentExName,
+        currentMuscle: currentMuscleName,
+        deviceInfo: deviceInfo
+      })
+    });
+  } catch (err) {
+    console.error("Heartbeat error:", err);
   }
 }
 

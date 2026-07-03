@@ -3869,3 +3869,12 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
     font-size: 0.7rem;
   }
 }
+
+.pulse-dot {
+  animation: pulse-green-active 1.8s infinite ease-in-out;
+}
+@keyframes pulse-green-active {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}

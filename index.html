@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=27">
+  <link rel="stylesheet" href="index.css?v=28">
 </head>
 <body>
   <!-- SPLASH SCREEN LAYER -->
@@ -661,31 +661,86 @@
             </div>
           </div>
 
-          <!-- Admin Broadcast Panel -->
-          <div class="analytics-card" style="background: rgba(212, 252, 52, 0.03); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 16px; padding: 14px; margin-bottom: 20px;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-              <i data-lucide="megaphone" style="color: var(--color-primary); width: 18px; height: 18px;"></i>
-              <h3 style="font-family: var(--font-heading); font-size: 0.95rem; margin: 0; color: var(--text-main); font-weight: 700;">Coach Global Announcement</h3>
+          <!-- Admin Dashboard Tab Controls -->
+          <div class="toggle-switch-container btn-full-width" style="margin-top: 5px; margin-bottom: 20px; display: flex;">
+            <button id="btn-admin-tab-clients" class="toggle-btn active" style="width: 50%;">👥 Client Manager</button>
+            <button id="btn-admin-tab-live" class="toggle-btn" style="width: 50%;">⚡ Live Monitor</button>
+          </div>
+
+          <!-- CONTAINER 1: CLIENT MANAGER -->
+          <div id="admin-view-clients-container">
+            <!-- Admin Broadcast Panel -->
+            <div class="analytics-card" style="background: rgba(212, 252, 52, 0.03); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 16px; padding: 14px; margin-bottom: 20px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <i data-lucide="megaphone" style="color: var(--color-primary); width: 18px; height: 18px;"></i>
+                <h3 style="font-family: var(--font-heading); font-size: 0.95rem; margin: 0; color: var(--text-main); font-weight: 700;">Coach Global Announcement</h3>
+              </div>
+              <p style="font-size: 0.72rem; color: var(--text-dark); margin: 0 0 10px 0;">Broadcast a notification to all client screens on sync.</p>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="input-admin-broadcast-message" placeholder="e.g. Gym open 2 hours late tomorrow! Keep lifting!" style="flex-grow: 1; padding: 8px 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-main);">
+                <button id="btn-admin-broadcast-submit" class="btn-success" style="padding: 8px 14px; font-size: 0.8rem; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                  <i data-lucide="send" style="width: 14px; height: 14px;"></i> Send
+                </button>
+              </div>
             </div>
-            <p style="font-size: 0.72rem; color: var(--text-dark); margin: 0 0 10px 0;">Broadcast a notification to all client screens on sync.</p>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="input-admin-broadcast-message" placeholder="e.g. Gym open 2 hours late tomorrow! Keep lifting!" style="flex-grow: 1; padding: 8px 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-main);">
-              <button id="btn-admin-broadcast-submit" class="btn-success" style="padding: 8px 14px; font-size: 0.8rem; border-radius: 10px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
-                <i data-lucide="send" style="width: 14px; height: 14px;"></i> Send
-              </button>
+
+            <!-- Filters & Controls Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="select-admin-filter" style="font-size: 0.65rem; color: var(--text-dark); margin-bottom: 4px;">Status Filter</label>
+                <select id="select-admin-filter" class="select-dropdown" style="padding: 8px 12px; font-size: 0.8rem; height: 36px;">
+                  <option value="all">All Clients</option>
+                  <option value="active">Active Only</option>
+                  <option value="banned">Banned Only</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="select-admin-sort" style="font-size: 0.65rem; color: var(--text-dark); margin-bottom: 4px;">Sorting Order</label>
+                <select id="select-admin-sort" class="select-dropdown" style="padding: 8px 12px; font-size: 0.8rem; height: 36px;">
+                  <option value="newest">Newest Joined</option>
+                  <option value="active">Recently Active</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Clients Search Bar -->
+            <div class="search-container" style="margin-bottom: 16px; display: flex; align-items: center; position: relative;">
+              <i data-lucide="search" class="search-icon" style="position: absolute; left: 14px; color: var(--text-muted); width: 16px; height: 16px;"></i>
+              <input type="text" id="input-admin-client-search" placeholder="Search by name or email..." style="padding-left: 38px; width: 100%;">
+            </div>
+
+            <!-- Clients List -->
+            <div id="admin-clients-list" class="templates-grid">
+              <!-- Dynamic client cards will load here -->
+              <div class="skeleton-loader"></div>
             </div>
           </div>
 
-          <!-- Clients Search Bar -->
-          <div class="search-container" style="margin-bottom: 16px;">
-            <i data-lucide="search" class="search-icon"></i>
-            <input type="text" id="input-admin-client-search" placeholder="Search clients by email...">
-          </div>
+          <!-- CONTAINER 2: LIVE MONITOR -->
+          <div id="admin-view-live-container" class="hidden">
+            <!-- Active Online Users Section -->
+            <div class="exercise-detail-section" style="margin-bottom: 24px;">
+              <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;">
+                <span class="pulse-dot" style="width: 8px; height: 8px; background-color: var(--color-success); border-radius: 50%; display: inline-block;"></span> Active Online Streams
+              </h3>
+              <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 12px; color: var(--text-dark);">Workout sessions currently in progress across the network.</p>
+              <div id="admin-online-users-list" style="display: flex; flex-direction: column; gap: 12px;">
+                <p class="empty-state-text" style="font-size: 0.75rem; text-align: center; color: var(--text-dark); padding: 15px 0;">No active workout sessions on the network right now.</p>
+              </div>
+            </div>
 
-          <!-- Clients List -->
-          <div id="admin-clients-list" class="templates-grid">
-            <!-- Dynamic client cards will load here -->
-            <div class="skeleton-loader"></div>
+            <!-- Live Terminal Logs Section -->
+            <div class="exercise-detail-section">
+              <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;">
+                <i data-lucide="terminal" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Live Network Activity Logs
+              </h3>
+              <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 10px; color: var(--text-dark);">Recent user activities logged in real-time.</p>
+              
+              <!-- Console Log Box -->
+              <div id="admin-terminal-logs" style="background: #0d0e12; border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; font-family: monospace; font-size: 0.7rem; color: #22c55e; height: 220px; overflow-y: auto; line-height: 1.5; white-space: pre-wrap; word-break: break-all;">
+[system@bebig.com] Live terminal feed initialized...
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1116,6 +1171,10 @@
             <i data-lucide="clock" style="width: 14px; height: 14px; color: var(--color-primary);"></i>
             <span>Last Workout Activity: <strong id="admin-client-last-active" style="color: var(--text-main);">Never</strong></span>
           </div>
+          <div style="margin-top: 6px; font-size: 0.78rem; color: var(--text-dark); display: flex; align-items: center; gap: 6px; word-break: break-all;">
+            <i data-lucide="fingerprint" style="width: 14px; height: 14px; color: var(--color-primary);"></i>
+            <span>User ID: <strong id="admin-client-unique-id" style="color: var(--text-main); font-family: monospace;">-</strong></span>
+          </div>
         </div>
 
         <!-- TAB CONTENT: ASSIGN ROUTINE -->
@@ -1168,6 +1227,18 @@
               <!-- Render client past workouts -->
               <div class="skeleton-loader"></div>
             </div>
+          </div>
+        </div>
+
+        <!-- FORCE RESET PASSWORD -->
+        <div class="exercise-detail-section" style="margin-top: 25px; border-top: 1px solid var(--border-light); padding-top: 20px;">
+          <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin: 0 0 4px 0;">
+            <i data-lucide="key" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Reset Account Password
+          </h3>
+          <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 12px; color: var(--text-dark);">Forcefully assign a new login password for this client account if they are locked out.</p>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="input-admin-reset-password" placeholder="Min 6 characters" style="flex-grow: 1; padding: 8px 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-main);">
+            <button id="btn-admin-reset-password-submit" class="btn-success" style="padding: 8px 14px; font-size: 0.8rem; border-radius: 10px; font-weight: 600;">Reset</button>
           </div>
         </div>
 
@@ -1373,6 +1444,6 @@
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Application JS Code -->
-  <script src="app.js?v=22"></script>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
