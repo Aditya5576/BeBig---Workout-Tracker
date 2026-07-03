@@ -56,6 +56,7 @@ html, body {
   width: 100%;
   overflow: hidden;
   user-select: none;
+  touch-action: pan-x pan-y;
 }
 
 /* Ambient glow bubbles in background */

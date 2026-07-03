@@ -3133,6 +3133,11 @@ function resetAllAppData() {
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Disable pinch-to-zoom gesture scaling on iOS Safari
+  document.addEventListener("gesturestart", (e) => {
+    e.preventDefault();
+  });
+
   // Initialize state
   initStore();
   setupMuscleFilters();
