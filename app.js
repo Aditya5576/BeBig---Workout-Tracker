@@ -1859,22 +1859,27 @@ function renderHomeView() {
     weekSessions.textContent = count;
   }
 
-  // Populate Weekly Dot Calendar
+  // Populate Weekly Dot Calendar (Fixed Monday-Sunday layout)
   const dotsContainer = document.getElementById("home-weekly-dots");
   if (dotsContainer) {
-    const daysAbbrev = ["S", "M", "T", "W", "T", "F", "S"];
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
+    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+    const mondayOfWeek = new Date(today);
+    mondayOfWeek.setDate(today.getDate() + distanceToMonday);
+
     const dots = dotsContainer.querySelectorAll(".week-dot");
-    
-    dots.forEach(dot => {
-      const offset = parseInt(dot.dataset.offset) || 0;
-      const targetDate = new Date();
-      targetDate.setDate(today.getDate() - offset);
-      targetDate.setHours(0, 0, 0, 0);
+    const daysAbbrev = ["M", "T", "W", "T", "F", "S", "S"];
+
+    dots.forEach((dot, idx) => {
+      const targetDate = new Date(mondayOfWeek);
+      targetDate.setDate(mondayOfWeek.getDate() + idx);
 
       const label = dot.querySelector("span");
       if (label) {
-        label.textContent = daysAbbrev[targetDate.getDay()];
+        label.textContent = daysAbbrev[idx];
       }
 
       const hasWorkout = visibleHistory.some(w => {
@@ -1889,14 +1894,14 @@ function renderHomeView() {
         dot.classList.remove("active");
       }
 
-      if (offset === 0) {
+      if (targetDate.getTime() === today.getTime()) {
         dot.classList.add("today");
       } else {
         dot.classList.remove("today");
       }
     });
-
   }
+
 
   // Update Weight subtext
   const weightSubtext = document.getElementById("home-weight-subtext");
@@ -2151,41 +2156,26 @@ function renderStartView() {
     });
     const targetedMuscles = Object.keys(musclesMap);
 
-    // Build list of exercises in template as elegant list items (max 4)
-    const maxToShow = 4;
-    const items = template.exercises.slice(0, maxToShow).map(ex => {
+    // Build brief list of exercises in template as preview text (takes much less vertical space)
+    const exerciseNames = template.exercises.map(ex => {
       const det = state.exercises.find(e => e.id === ex.exerciseId);
-      if (!det) return "";
-      
-      const setsCount = ex.sets ? ex.sets.length : 0;
-      const firstSet = ex.sets && ex.sets[0] ? ex.sets[0] : null;
-      let setDetails = "";
-      if (firstSet) {
-        setDetails = `<span class="template-exercise-meta">${setsCount} sets × ${firstSet.reps} reps</span>`;
-      }
-
-      return `
-        <div class="template-exercise-row">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <i data-lucide="dumbbell" style="width: 12px; height: 12px; color: var(--color-primary); opacity: 0.85;"></i>
-            <span class="template-exercise-name">${det.name}</span>
-          </div>
-          ${setDetails}
-        </div>
-      `;
+      return det ? det.name : null;
     }).filter(Boolean);
-
-    if (template.exercises.length > maxToShow) {
-      items.push(`
-        <div class="template-exercise-row more" style="color: var(--color-primary); padding-left: 20px;">
-          <span>+ ${template.exercises.length - maxToShow} more exercises</span>
-        </div>
-      `);
+    
+    let previewText = "No exercises added yet.";
+    if (exerciseNames.length > 0) {
+      previewText = exerciseNames.slice(0, 3).join(", ");
+      if (exerciseNames.length > 3) {
+        previewText += ` +${exerciseNames.length - 3} more`;
+      }
     }
 
-    const exercisesHTML = items.length > 0 
-      ? `<div class="template-exercises-track">${items.join("")}</div>`
-      : '<p class="empty-state-text" style="font-size: 0.75rem; margin: 4px 0 0 0;">No exercises added yet.</p>';
+    const exercisesHTML = `
+      <p class="template-preview-text" style="font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 12px 0; line-height: 1.4; font-family: var(--font-body); font-weight: 500;">
+        ${previewText}
+      </p>
+    `;
+
 
     // Muscle group badges
     let musclesHTML = "";

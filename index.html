@@ -75,40 +75,23 @@
       <header class="app-header">
         <div class="header-left-group">
           <div class="header-logo">
-            <svg class="app-logo-icon" viewBox="0 0 100 100" width="30" height="30" style="margin-right: 8px;">
+            <svg class="app-logo-icon" viewBox="0 0 100 100" width="28" height="28" style="margin-right: 8px;">
               <defs>
                 <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="#d4fc34" />
                   <stop offset="100%" stop-color="#10b981" />
                 </linearGradient>
-                <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feGaussianBlur stdDeviation="3" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
               </defs>
-              <!-- Segmented rotating outer tech-ring -->
-              <circle cx="50" cy="50" r="43" stroke="url(#logo-grad)" stroke-width="4.5" fill="none" stroke-dasharray="24 10" class="logo-outer-ring" />
-              <!-- Outer solid backing ticks for high-tech aesthetic -->
-              <circle cx="50" cy="50" r="35" stroke="rgba(255, 255, 255, 0.08)" stroke-width="1.5" fill="none" />
-              <!-- Inner Powerhouse Dumbbell Shape -->
-              <g class="logo-inner-dumbbell" filter="url(#neon-glow)">
-                <!-- Bar -->
-                <rect x="30" y="47" width="40" height="6" rx="2" fill="url(#logo-grad)" />
-                <!-- Left Plates -->
-                <rect x="22" y="32" width="8" height="36" rx="3" fill="url(#logo-grad)" />
-                <rect x="14" y="38" width="6" height="24" rx="2" fill="#10b981" />
-                <!-- Right Plates -->
-                <rect x="70" y="32" width="8" height="36" rx="3" fill="url(#logo-grad)" />
-                <rect x="80" y="38" width="6" height="24" rx="2" fill="#10b981" />
-                <!-- Central Core Light -->
-                <circle cx="50" cy="50" r="3.5" fill="#ffffff" />
-              </g>
+              <!-- Modern Hexagon Outer frame -->
+              <polygon points="50,12 88,34 88,78 50,100 12,78 12,34" stroke="url(#logo-grad)" stroke-width="6" fill="none" stroke-linejoin="round" />
+              <!-- Minimalist Barbell inside -->
+              <path d="M 32,50 L 68,50" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+              <rect x="24" y="35" width="6" height="30" rx="2.5" fill="url(#logo-grad)" />
+              <rect x="70" y="35" width="6" height="30" rx="2.5" fill="url(#logo-grad)" />
             </svg>
-            <span class="logo-accent">BE</span><span class="logo-light">BIG</span>
+            <span class="logo-accent" style="color: #d4fc34; font-weight: 800; letter-spacing: 0.5px;">BE</span><span class="logo-light" style="color: #ffffff; font-weight: 400; opacity: 0.95; letter-spacing: 0.5px;">BIG</span>
           </div>
+
         </div>
         <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
           <button id="btn-sync-now-header" class="btn-icon-only-flat hidden" title="Sync with Cloud">
@@ -192,14 +175,15 @@
                 <span class="sessions-label">workouts</span>
               </div>
               <div class="weekly-dots-container" id="home-weekly-dots">
-                <div class="week-dot" data-offset="6"><span>M</span></div>
-                <div class="week-dot" data-offset="5"><span>T</span></div>
-                <div class="week-dot" data-offset="4"><span>W</span></div>
-                <div class="week-dot" data-offset="3"><span>T</span></div>
-                <div class="week-dot" data-offset="2"><span>W</span></div>
-                <div class="week-dot" data-offset="1"><span>T</span></div>
-                <div class="week-dot" data-offset="0"><span>F</span></div>
+                <div class="week-dot" data-day-idx="0"><span>M</span></div>
+                <div class="week-dot" data-day-idx="1"><span>T</span></div>
+                <div class="week-dot" data-day-idx="2"><span>W</span></div>
+                <div class="week-dot" data-day-idx="3"><span>T</span></div>
+                <div class="week-dot" data-day-idx="4"><span>F</span></div>
+                <div class="week-dot" data-day-idx="5"><span>S</span></div>
+                <div class="week-dot" data-day-idx="6"><span>S</span></div>
               </div>
+
             </div>
           </div>
 
