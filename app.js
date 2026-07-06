@@ -140,13 +140,18 @@ let state = {
 
 let pendingTemplateId = null;
 let currentGeneratedWorkout = null;
+let isWorkoutPanelOpening = false;
+let isTemplateEditorOpening = false;
+
 
 function initStore() {
   state.exercises = store.get("exercises", DEFAULT_EXERCISES);
   state.templates = store.get("templates", DEFAULT_TEMPLATES);
   state.history = store.get("history", []);
   state.activeWorkout = store.get("activeWorkout", null);
-  state.settings = store.get("settings", { unit: "lbs", defaultRest: 90, notificationsEnabled: false });
+  state.settings = store.get("settings", { unit: "lbs", defaultRest: 90, notificationsEnabled: false, broadcastFilterDuration: "12" });
+  if (!state.settings.broadcastFilterDuration) state.settings.broadcastFilterDuration = "12";
+
   state.auth = store.get("auth", { email: null, token: null, lastSyncTime: 0, isAdmin: false });
   state.schedule = store.get("bebig_schedule", {
     "Mon": null,
@@ -213,6 +218,10 @@ function saveAllState() {
   store.set("settings", state.settings);
   store.set("auth", state.auth);
   store.set("bebig_schedule", state.schedule);
+  // Schedule a cloud push 500ms after any local state write (debounced)
+  if (typeof scheduleSyncAfterWrite === 'function' && !isSyncing) {
+    scheduleSyncAfterWrite();
+  }
 }
 
 // ==========================================================================
@@ -1110,6 +1119,7 @@ function initializeWorkoutSession(templateId, fatigue) {
   };
 
   saveAllState();
+  isWorkoutPanelOpening = true;
   renderActiveWorkoutUI();
   
   // Set UI input values
@@ -1117,12 +1127,18 @@ function initializeWorkoutSession(templateId, fatigue) {
   document.getElementById("input-workout-notes").value = workoutNotes;
   
   // Toggle screens
-  document.getElementById("workout-panel").classList.remove("minimized");
-  document.getElementById("workout-panel").classList.add("open");
+  const wPanel = document.getElementById("workout-panel");
+  if (wPanel) {
+    wPanel.style.transform = ""; // clear any inline GSAP styles
+    wPanel.classList.remove("minimized");
+    wPanel.classList.add("open");
+  }
+
   updateMiniBarState(false);
 
   startWorkoutTimer();
 }
+
 
 function getPreviousSetStatsString(exerciseId) {
   // Find the most recent workout in history containing this exercise
@@ -1292,6 +1308,22 @@ function renderActiveWorkoutUI() {
   });
 
   if (window.lucide) window.lucide.createIcons();
+
+  // Run entrance animation for cards if panel is opening
+  if (isWorkoutPanelOpening) {
+    isWorkoutPanelOpening = false;
+    if (window.gsap) {
+      const cards = container.querySelectorAll(".active-exercise-card");
+      if (cards.length > 0) {
+        gsap.killTweensOf(cards);
+        gsap.fromTo(cards, 
+          { opacity: 0, y: 30 }, 
+          { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power3.out", clearProps: "transform" }
+        );
+      }
+    }
+  }
+
 }
 
 function handleActiveWorkoutClickEvents(e) {
@@ -1514,7 +1546,7 @@ function finishActiveWorkout() {
 
   // Instant cloud sync
   if (state.auth && state.auth.token) {
-    syncData();
+    syncData(true);
   }
   
   stopWorkoutTimer();
@@ -1538,20 +1570,108 @@ function finishActiveWorkout() {
   Analytics.calculateAllStats();
 }
 
-function cancelActiveWorkout() {
-  if (confirm("Are you sure you want to discard this workout? All logged sets will be lost.")) {
-    state.activeWorkout = null;
-    saveAllState();
-    stopWorkoutTimer();
+function showCustomConfirm(options = {}) {
+  const {
+    title = "Confirm Action",
+    message = "Are you sure?",
+    confirmText = "Proceed",
+    cancelText = "Cancel",
+    isDanger = true,
+    onConfirm = () => {},
+    onCancel = () => {}
+  } = options;
 
-    document.getElementById("workout-panel").classList.remove("open");
-    document.getElementById("workout-panel").classList.remove("minimized");
-    updateMiniBarState(false);
-    
-    // Switch to workouts view
-    switchView("workouts");
+  const modal = document.getElementById("modal-custom-confirm");
+  const titleEl = document.getElementById("confirm-dialog-title");
+  const msgEl = document.getElementById("confirm-dialog-message");
+  const iconEl = document.getElementById("confirm-dialog-icon");
+  const btnCancel = document.getElementById("btn-confirm-dialog-cancel");
+  const btnOk = document.getElementById("btn-confirm-dialog-ok");
+
+  if (!modal) return;
+
+  titleEl.textContent = title;
+  msgEl.textContent = message;
+  btnCancel.textContent = cancelText;
+  btnOk.textContent = confirmText;
+
+  if (isDanger) {
+    iconEl.textContent = "⚠️";
+    iconEl.style.background = "rgba(244, 63, 94, 0.12)";
+    iconEl.style.color = "var(--color-danger)";
+    btnOk.className = "btn-danger";
+  } else {
+    iconEl.textContent = "❓";
+    iconEl.style.background = "rgba(16, 185, 129, 0.12)";
+    iconEl.style.color = "var(--color-primary)";
+    btnOk.className = "btn-success";
   }
+
+  modal.classList.remove("hidden");
+  if (window.gsap) {
+    gsap.killTweensOf(modal);
+    gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.18 });
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      gsap.killTweensOf(content);
+      gsap.fromTo(content, { scale: 0.92, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(1.4)" });
+    }
+  }
+
+  // Remove previous event listeners by cloning
+  const newBtnCancel = btnCancel.cloneNode(true);
+  const newBtnOk = btnOk.cloneNode(true);
+  btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
+  btnOk.parentNode.replaceChild(newBtnOk, btnOk);
+
+  const closeModal = () => {
+    if (window.gsap) {
+      const content = modal.querySelector(".modal-content");
+      gsap.to(content, { scale: 0.92, opacity: 0, duration: 0.15, onComplete: () => {
+        gsap.to(modal, { opacity: 0, duration: 0.1, onComplete: () => {
+          modal.classList.add("hidden");
+        }});
+      }});
+    } else {
+      modal.classList.add("hidden");
+    }
+  };
+
+  newBtnCancel.addEventListener("click", () => {
+    closeModal();
+    onCancel();
+  });
+
+  newBtnOk.addEventListener("click", () => {
+    closeModal();
+    onConfirm();
+  });
 }
+
+function cancelActiveWorkout() {
+  showCustomConfirm({
+    title: "Discard Workout?",
+    message: "Are you sure you want to discard this workout session? All logged sets will be lost permanently.",
+    confirmText: "Discard",
+    cancelText: "Keep Logging",
+    isDanger: true,
+    onConfirm: () => {
+      state.activeWorkout = null;
+      saveAllState();
+      stopWorkoutTimer();
+
+      const wPanel = document.getElementById("workout-panel");
+      if (wPanel) {
+        wPanel.style.transform = "";
+        wPanel.classList.remove("open");
+        wPanel.classList.remove("minimized");
+      }
+      updateMiniBarState(false);
+      switchView("workouts");
+    }
+  });
+}
+
 
 // ==========================================================================
 // 9. RENDER SUBVIEWS
@@ -1738,7 +1858,14 @@ function renderHomeView() {
       } else {
         dot.classList.remove("active");
       }
+
+      if (offset === 0) {
+        dot.classList.add("today");
+      } else {
+        dot.classList.remove("today");
+      }
     });
+
   }
 
   // Update Weight subtext
@@ -2242,23 +2369,31 @@ function renderHistoryView(searchQuery = "") {
 }
 
 function deleteHistoryItem(id) {
-  if (confirm("Are you sure you want to delete this workout log?")) {
-    const item = state.history.find(w => w.id === id);
-    if (item) {
-      item.deleted = 1;
-      item.updated_at = Date.now();
-      item.dirty = 1;
-      saveAllState();
-      renderHistoryView(document.getElementById("input-history-search").value);
-      Analytics.calculateAllStats();
+  showCustomConfirm({
+    title: "Delete Workout Log?",
+    message: "Are you sure you want to delete this workout log from your history? This cannot be undone.",
+    confirmText: "Delete",
+    cancelText: "Keep Log",
+    isDanger: true,
+    onConfirm: () => {
+      const item = state.history.find(w => w.id === id);
+      if (item) {
+        item.deleted = 1;
+        item.updated_at = Date.now();
+        item.dirty = 1;
+        saveAllState();
+        renderHistoryView(document.getElementById("input-history-search").value);
+        Analytics.calculateAllStats();
 
-      // Instant cloud sync
-      if (state.auth && state.auth.token) {
-        syncData();
+        // Instant cloud sync
+        if (state.auth && state.auth.token) {
+          syncData(true);
+        }
       }
     }
-  }
+  });
 }
+
 
 // --- EXERCISES VIEW ---
 let exercisesSelectedMuscleFilter = "all";
@@ -2626,7 +2761,7 @@ function saveCustomExercise() {
 
   // Instant cloud sync
   if (state.auth && state.auth.token) {
-    syncData();
+    syncData(true);
   }
 }
 
@@ -2637,6 +2772,7 @@ let templateEditorExercises = []; // exercises loaded in editor
 function openTemplateEditor(templateId = null) {
   templateEditorId = templateId;
   templateEditorExercises = [];
+  isTemplateEditorOpening = true;
 
   const modal = document.getElementById("modal-template-editor");
   const title = document.getElementById("template-editor-title");
@@ -2648,6 +2784,17 @@ function openTemplateEditor(templateId = null) {
   if (!modal) return;
 
   modal.classList.remove("hidden");
+  
+  if (window.gsap) {
+    gsap.killTweensOf(modal);
+    gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.28, ease: "power2.out" });
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      gsap.killTweensOf(content);
+      gsap.fromTo(content, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.38, ease: "power3.out" });
+    }
+  }
+
 
   if (templateId) {
     title.textContent = "Edit Template";
@@ -2676,6 +2823,39 @@ function openTemplateEditor(templateId = null) {
 
   renderTemplateEditorExercises();
 }
+
+function closeTemplateEditorModal() {
+  const modal = document.getElementById("modal-template-editor");
+  if (!modal) return;
+
+  if (window.gsap) {
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      gsap.killTweensOf(content);
+      gsap.to(content, { 
+        y: 45, 
+        opacity: 0, 
+        duration: 0.25, 
+        ease: "power2.in", 
+        onComplete: () => {
+          gsap.killTweensOf(modal);
+          gsap.to(modal, { 
+            opacity: 0, 
+            duration: 0.15, 
+            onComplete: () => {
+              modal.classList.add("hidden");
+            } 
+          });
+        } 
+      });
+    } else {
+      modal.classList.add("hidden");
+    }
+  } else {
+    modal.classList.add("hidden");
+  }
+}
+
 
 function updateTemplateEditorSummary() {
   const summaryContainer = document.getElementById("template-target-muscles-summary");
@@ -2805,7 +2985,23 @@ function renderTemplateEditorExercises() {
   });
 
   if (window.lucide) window.lucide.createIcons();
+
+  // Run entrance animation for cards if editor is opening
+  if (isTemplateEditorOpening) {
+    isTemplateEditorOpening = false;
+    if (window.gsap) {
+      const cards = container.querySelectorAll(".active-exercise-card");
+      if (cards.length > 0) {
+        gsap.killTweensOf(cards);
+        gsap.fromTo(cards, 
+          { opacity: 0, y: 30 }, 
+          { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: "power3.out", clearProps: "transform" }
+        );
+      }
+    }
+  }
 }
+
 
 function handleTemplateEditorClicks(e) {
   const target = e.target;
@@ -2947,31 +3143,40 @@ function saveWorkoutTemplate() {
   renderStartView();
 
   // Close modal
-  document.getElementById("modal-template-editor").classList.add("hidden");
+  closeTemplateEditorModal();
+
 
   // Instant cloud sync
   if (state.auth && state.auth.token) {
-    syncData();
+    syncData(true);
   }
 }
 
 function deleteWorkoutTemplate(templateId) {
-  if (confirm("Are you sure you want to delete this template?")) {
-    const tmpl = state.templates.find(t => t.id === templateId);
-    if (tmpl) {
-      tmpl.deleted = 1;
-      tmpl.updated_at = Date.now();
-      tmpl.dirty = 1;
-      saveAllState();
-      renderStartView();
-      
-      // Instant cloud sync
-      if (state.auth && state.auth.token) {
-        syncData();
+  showCustomConfirm({
+    title: "Delete Template?",
+    message: "Are you sure you want to delete this workout template? This cannot be undone.",
+    confirmText: "Delete",
+    cancelText: "Keep Template",
+    isDanger: true,
+    onConfirm: () => {
+      const tmpl = state.templates.find(t => t.id === templateId);
+      if (tmpl) {
+        tmpl.deleted = 1;
+        tmpl.updated_at = Date.now();
+        tmpl.dirty = 1;
+        saveAllState();
+        renderStartView();
+        
+        // Instant cloud sync
+        if (state.auth && state.auth.token) {
+          syncData(true);
+        }
       }
     }
-  }
+  });
 }
+
 
 // ==========================================================================
 // 11. VIEW CONTROLLER (SPA TAB VIEW ROUTER)
@@ -2994,19 +3199,31 @@ function switchView(viewName) {
   document.querySelectorAll(".views-wrapper .app-view").forEach(panel => {
     if (panel.id === `view-${viewName}`) {
       panel.classList.add("active");
+      // GSAP stagger entrance on the view's direct content children
+      if (window.gsap) {
+        const targets = panel.querySelectorAll(
+          '.action-card, .metric-card, .template-card, .history-item-card, .admin-client-card, .analytics-card, .exercise-detail-section'
+        );
+        if (targets.length > 0) {
+          gsap.fromTo(targets,
+            { opacity: 0, y: 12 },
+            { opacity: 1, y: 0, duration: 0.32, stagger: 0.04, ease: 'power3.out', clearProps: 'transform' }
+          );
+        }
+      }
     } else {
       panel.classList.remove("active");
     }
   });
 
-  // Trigger view renderers
+  // Trigger view renderers + silent sync on switch
   if (viewName === "home") {
     renderHomeView();
-    if (state.auth && state.auth.token) syncData();
+    if (state.auth && state.auth.token) syncData(true);
   }
   else if (viewName === "workouts") {
     renderStartView();
-    if (state.auth && state.auth.token) syncData();
+    if (state.auth && state.auth.token) syncData(true);
   }
   else if (viewName === "schedule") renderScheduleView();
   else if (viewName === "history") renderHistoryView();
@@ -3024,6 +3241,13 @@ function loadSettingsView() {
   
   // Update default rest timer duration dropdown
   document.getElementById("select-default-rest").value = state.settings.defaultRest;
+
+  // Update broadcast filter duration dropdown
+  const selectBroadcast = document.getElementById("select-broadcast-duration");
+  if (selectBroadcast) {
+    selectBroadcast.value = state.settings.broadcastFilterDuration || "12";
+  }
+
 
   // Update notifications toggle state
   const notifEnabled = state.settings.notificationsEnabled === true;
@@ -3159,7 +3383,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Auto-sync remote updates on startup
   if (state.auth && state.auth.token) {
-    syncData();
+    syncData(true);
   }
 
   // Run the premium splash screen sequence
@@ -3260,7 +3484,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Instant cloud sync
         if (state.auth && state.auth.token) {
-          syncData();
+          syncData(true);
         }
       } else {
         alert("Please enter a valid weight!");
@@ -3304,9 +3528,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeModal = target.closest(".btn-close-modal");
     if (closeModal) {
       const modal = target.closest(".modal-overlay");
-      if (modal) modal.classList.add("hidden");
+      if (modal) {
+        if (modal.id === "modal-template-editor") {
+          closeTemplateEditorModal();
+        } else {
+          modal.classList.add("hidden");
+        }
+      }
       return;
     }
+
 
     // + Custom button inside exercise selector modal
     if (target.closest("#btn-selector-create-custom")) {
@@ -3400,7 +3631,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Instant cloud sync
       if (state.auth && state.auth.token) {
-        syncData();
+        syncData(true);
       }
     });
   }
@@ -3425,7 +3656,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Instant cloud sync
       if (state.auth && state.auth.token) {
-        syncData();
+        syncData(true);
       }
     });
   }
@@ -3440,10 +3671,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Instant cloud sync
       if (state.auth && state.auth.token) {
-        syncData();
+        syncData(true);
       }
     });
   }
+
+  const selectBroadcast = document.getElementById("select-broadcast-duration");
+  if (selectBroadcast) {
+    selectBroadcast.addEventListener("change", (e) => {
+      state.settings.broadcastFilterDuration = e.target.value || "12";
+      state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
+      saveAllState();
+
+      // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData(true);
+      }
+    });
+  }
+
 
   const btnExport = document.getElementById("btn-export-data");
   if (btnExport) {
@@ -3471,8 +3718,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (timerWidget) {
     timerWidget.addEventListener("click", () => {
       if (wPanel) {
+        wPanel.style.transform = ""; // clear GSAP overrides
         wPanel.classList.remove("minimized");
         wPanel.classList.add("open");
+        isWorkoutPanelOpening = true;
+        renderActiveWorkoutUI();
       }
       updateMiniBarState(false);
     });
@@ -3482,6 +3732,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnMinimize) {
     btnMinimize.addEventListener("click", () => {
       if (wPanel) {
+        wPanel.style.transform = ""; // clear GSAP overrides
         wPanel.classList.remove("open");
         wPanel.classList.add("minimized");
       }
@@ -3493,8 +3744,11 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnRestore) {
     btnRestore.addEventListener("click", () => {
       if (wPanel) {
+        wPanel.style.transform = ""; // clear GSAP overrides
         wPanel.classList.remove("minimized");
         wPanel.classList.add("open");
+        isWorkoutPanelOpening = true;
+        renderActiveWorkoutUI();
       }
       updateMiniBarState(false);
     });
@@ -3504,6 +3758,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (panelDragHeader) {
     panelDragHeader.addEventListener("click", () => {
       if (wPanel) {
+        wPanel.style.transform = ""; // clear GSAP overrides
         if (wPanel.classList.contains("open")) {
           wPanel.classList.remove("open");
           wPanel.classList.add("minimized");
@@ -3511,11 +3766,15 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           wPanel.classList.remove("minimized");
           wPanel.classList.add("open");
+          isWorkoutPanelOpening = true;
+          renderActiveWorkoutUI();
           updateMiniBarState(false);
         }
       }
     });
   }
+
+
 
   const activeExList = document.getElementById("active-exercises-list");
   if (activeExList) {
@@ -3651,9 +3910,10 @@ document.addEventListener("DOMContentLoaded", () => {
     btnDeleteTemplateEditor.addEventListener("click", () => {
       if (templateEditorId) {
         deleteWorkoutTemplate(templateEditorId);
-        document.getElementById("modal-template-editor").classList.add("hidden");
+        closeTemplateEditorModal();
       }
     });
+
   }
 
   const btnAddExToTemplate = document.getElementById("btn-add-exercise-to-template");
@@ -3682,24 +3942,41 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initialize Cloud Sync UI
   updateCloudUI();
   
-  // Auto sync if user is logged in
+  // Auto sync if user is logged in (show pill on first sync)
   if (state.auth && state.auth.token) {
-    syncData();
+    SyncPill.setSyncing();
+    syncData(true);
   }
 
-  // Live real-time background sync polling (every 10 seconds, only when tab is visible)
-  setInterval(() => {
-    if (state.auth && state.auth.token && document.visibilityState === "visible") {
-      syncData(true); // silent sync in background
-    }
-  }, 10000);
+  // Start the live sync engine (8s polling + visibility + online/offline)
+  initLiveSyncEngine();
 
   // --- CLOUD SYNC & AUTH BINDINGS ---
   const btnCloudAccount = document.getElementById("btn-cloud-account");
   if (btnCloudAccount) {
     btnCloudAccount.addEventListener("click", () => {
-      if (state.auth && state.auth.token) {
-        if (confirm("Are you sure you want to log out from BeBig Cloud?")) {
+      if (!state.auth || !state.auth.token) {
+        document.getElementById("modal-cloud-auth").classList.remove("hidden");
+        document.getElementById("auth-error-msg").classList.add("hidden");
+        document.getElementById("input-auth-email").value = "";
+        document.getElementById("input-auth-password").value = "";
+        const nameInput = document.getElementById("input-auth-name");
+        if (nameInput) nameInput.value = "";
+        switchAuthTab("login");
+      }
+    });
+  }
+
+  const btnProfileLogout = document.getElementById("btn-profile-logout");
+  if (btnProfileLogout) {
+    btnProfileLogout.addEventListener("click", () => {
+      showCustomConfirm({
+        title: "Log Out?",
+        message: "Are you sure you want to terminate your sync session? Your local training data will be reset to defaults to protect your privacy.",
+        confirmText: "Log Out",
+        cancelText: "Stay Logged In",
+        isDanger: true,
+        onConfirm: () => {
           // Clear credentials
           state.auth = { email: null, token: null, lastSyncTime: 0 };
           localStorage.removeItem("bebig_guest_mode");
@@ -3722,17 +3999,10 @@ document.addEventListener("DOMContentLoaded", () => {
           loadSettingsView();
           Analytics.calculateAllStats();
         }
-      } else {
-        document.getElementById("modal-cloud-auth").classList.remove("hidden");
-        document.getElementById("auth-error-msg").classList.add("hidden");
-        document.getElementById("input-auth-email").value = "";
-        document.getElementById("input-auth-password").value = "";
-        const nameInput = document.getElementById("input-auth-name");
-        if (nameInput) nameInput.value = "";
-        switchAuthTab("login");
-      }
+      });
     });
   }
+
 
   const btnCloseCloudAuth = document.getElementById("btn-close-cloud-auth");
   if (btnCloseCloudAuth) {
@@ -4006,29 +4276,39 @@ const API_BASE_URL = window.location.hostname === "localhost" || window.location
   : "https://bebig-backend.adityapatil2348.workers.dev";
 
 let isSyncing = false;
+let _syncWriteTimer = null; // debounce timer for post-write syncs
+let _lastPushedActiveWorkoutStr = null; // tracker for active workout session pushes
+
+
+// ── Sync Status Pill controller ─────────────────────────────────────────────
+const SyncPill = {
+  show(state, text) {},
+  hide(delay = 2200) {},
+  setSyncing() {},
+  setSynced()  {},
+  setOffline() {},
+  setError()   {}
+};
+
+
+// ── Debounced post-write sync ────────────────────────────────────────────────
+function scheduleSyncAfterWrite() {
+  if (!state.auth || !state.auth.token) return;
+  clearTimeout(_syncWriteTimer);
+  _syncWriteTimer = setTimeout(() => syncData(true), 500);
+}
+
 
 async function syncData(isSilent = false) {
   if (isSyncing || !state.auth || !state.auth.token) return;
   isSyncing = true;
-  
-  const syncBtn = document.getElementById("btn-sync-now");
-  const syncBtnHeader = document.getElementById("btn-sync-now-header");
-  let syncIcon = null;
-  let syncHeaderIcon = null;
-  
-  if (!isSilent) {
-    if (syncBtn) {
-      syncIcon = syncBtn.querySelector(".settings-row-icon");
-      if (syncIcon) syncIcon.classList.add("spinning");
-    }
-    if (syncBtnHeader) {
-      syncHeaderIcon = syncBtnHeader.querySelector("i");
-      if (syncHeaderIcon) syncHeaderIcon.classList.add("spinning");
-    }
-  }
+
+  if (!isSilent) SyncPill.setSyncing();
 
   try {
     const lastSync = state.auth.lastSyncTime || 0;
+    const activeWorkoutStr = JSON.stringify(state.activeWorkout);
+    const activeWorkoutChanged = activeWorkoutStr !== _lastPushedActiveWorkoutStr;
     
     // 1. Filter local modifications since last sync (or marked dirty)
     const exercisesToPush = state.exercises.filter(ex => ex.id && String(ex.id).startsWith("custom-") && (ex.dirty || (ex.updated_at || 0) > lastSync));
@@ -4045,7 +4325,7 @@ async function syncData(isSilent = false) {
     }
 
     // 2. Push local state updates
-    if (exercisesToPush.length > 0 || templatesToPush.length > 0 || historyToPush.length > 0 || settingsToPush) {
+    if (exercisesToPush.length > 0 || templatesToPush.length > 0 || historyToPush.length > 0 || settingsToPush || activeWorkoutChanged) {
       const pushRes = await fetch(`${API_BASE_URL}/api/sync/push`, {
         method: "POST",
         headers: {
@@ -4056,7 +4336,8 @@ async function syncData(isSilent = false) {
           exercises: exercisesToPush,
           templates: templatesToPush,
           history: historyToPush,
-          settings: settingsToPush
+          settings: settingsToPush,
+          activeWorkout: state.activeWorkout
         })
       });
       if (pushRes.status === 403) {
@@ -4072,6 +4353,7 @@ async function syncData(isSilent = false) {
       }
       const pushData = await pushRes.json();
       if (pushData.success && pushData.synced_at) {
+        _lastPushedActiveWorkoutStr = activeWorkoutStr;
         exercisesToPush.forEach(ex => { ex.updated_at = pushData.synced_at; delete ex.dirty; });
         templatesToPush.forEach(t => { t.updated_at = pushData.synced_at; delete t.dirty; });
         historyToPush.forEach(h => { h.updated_at = pushData.synced_at; delete h.dirty; });
@@ -4082,6 +4364,7 @@ async function syncData(isSilent = false) {
         saveAllState();
       }
     }
+
 
     // 3. Pull newer remote state updates
     const pullRes = await fetch(`${API_BASE_URL}/api/sync/pull?last_pulled_at=${lastSync}`, {
@@ -4107,24 +4390,37 @@ async function syncData(isSilent = false) {
     // Check for global broadcast announcement
     if (remoteData.broadcast && remoteData.broadcast.timestamp) {
       const lastBroadcast = state.settings.lastBroadcastTimestamp || 0;
-      if (remoteData.broadcast.timestamp > lastBroadcast) {
-        state.settings.lastBroadcastTimestamp = remoteData.broadcast.timestamp;
-        saveAllState();
+      const durationSetting = state.settings.broadcastFilterDuration || "12";
 
-        const broadcastModal = document.getElementById("modal-broadcast-announcement");
-        const broadcastMsgText = document.getElementById("broadcast-message-text");
-        const broadcastTimeText = document.getElementById("broadcast-timestamp-text");
-        
-        if (broadcastModal && broadcastMsgText) {
-          broadcastMsgText.textContent = remoteData.broadcast.message;
-          if (broadcastTimeText) {
-            const dateStr = new Date(remoteData.broadcast.timestamp).toLocaleString();
-            broadcastTimeText.textContent = `Sent: ${dateStr}`;
+      if (durationSetting !== "off") {
+        let isWithinLimit = true;
+        if (durationSetting !== "always") {
+          const hours = parseInt(durationSetting, 10) || 12;
+          const ageMs = Date.now() - remoteData.broadcast.timestamp;
+          isWithinLimit = ageMs < (hours * 60 * 60 * 1000);
+        }
+
+        if (remoteData.broadcast.timestamp > lastBroadcast && isWithinLimit) {
+          state.settings.lastBroadcastTimestamp = remoteData.broadcast.timestamp;
+          saveAllState();
+
+          const broadcastModal = document.getElementById("modal-broadcast-announcement");
+          const broadcastMsgText = document.getElementById("broadcast-message-text");
+          const broadcastTimeText = document.getElementById("broadcast-timestamp-text");
+          
+          if (broadcastModal && broadcastMsgText) {
+            broadcastMsgText.textContent = remoteData.broadcast.message;
+            if (broadcastTimeText) {
+              const dateStr = new Date(remoteData.broadcast.timestamp).toLocaleString();
+              broadcastTimeText.textContent = `Sent: ${dateStr}`;
+            }
+            broadcastModal.classList.remove("hidden");
           }
-          broadcastModal.classList.remove("hidden");
         }
       }
     }
+
+
 
     // 4. Conflict Resolution (Latest timestamp wins)
     // Exercises
@@ -4183,9 +4479,45 @@ async function syncData(isSilent = false) {
       }
     }
 
+    // Active Workout Sync (Real-time Session mirroring)
+    if (remoteData.activeWorkout !== undefined) {
+      const currentActiveStr = JSON.stringify(state.activeWorkout);
+      const remoteActiveStr = JSON.stringify(remoteData.activeWorkout);
+
+      if (currentActiveStr !== remoteActiveStr) {
+        if (remoteData.activeWorkout) {
+          state.activeWorkout = remoteData.activeWorkout;
+          _lastPushedActiveWorkoutStr = remoteActiveStr; // Align pushed state tracker to prevent feedback loops
+          
+          renderActiveWorkoutUI();
+          
+          // Ensure panel shows up as minimized if it isn't already visible
+          const wPanel = document.getElementById("workout-panel");
+          if (wPanel && !wPanel.classList.contains("open") && !wPanel.classList.contains("minimized")) {
+            wPanel.classList.add("minimized");
+            updateMiniBarState(true);
+          }
+          startWorkoutTimer();
+        } else {
+          // Workout finished or discarded on other device
+          state.activeWorkout = null;
+          _lastPushedActiveWorkoutStr = null;
+          
+          stopWorkoutTimer();
+          const wPanel = document.getElementById("workout-panel");
+          if (wPanel) {
+            wPanel.style.transform = "";
+            wPanel.classList.remove("open", "minimized");
+          }
+          updateMiniBarState(false);
+        }
+      }
+    }
+
     // Sync finished successfully
     state.auth.lastSyncTime = remoteData.server_time || Date.now();
     saveAllState();
+    SyncPill.setSynced();
 
     // Refresh display lists
     renderHomeView();
@@ -4195,15 +4527,49 @@ async function syncData(isSilent = false) {
     renderExercisesView();
     Analytics.calculateAllStats();
 
+
   } catch (err) {
     console.error("Cloud Sync error:", err);
+    if (!isSilent) SyncPill.setError();
+    else SyncPill.setError();
   } finally {
     isSyncing = false;
-    if (syncIcon) syncIcon.classList.remove("spinning");
-    if (syncHeaderIcon) syncHeaderIcon.classList.remove("spinning");
     updateCloudUI();
   }
 }
+
+// ── Kick off background sync every 8 seconds + on visibility/online ──────────
+function initLiveSyncEngine() {
+  // 1. Background polling — every 8 seconds
+  setInterval(() => {
+    if (state.auth && state.auth.token && document.visibilityState === 'visible' && navigator.onLine) {
+      syncData(true);
+    }
+  }, 8000);
+
+  // 2. Sync immediately when user switches back to this tab / app
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.auth && state.auth.token) {
+      syncData(true);
+    }
+  });
+
+  // 3. Sync immediately when network comes back online
+  window.addEventListener('online', () => {
+    SyncPill.show('', '📶 Back online!');
+    if (state.auth && state.auth.token) {
+      setTimeout(() => syncData(true), 400);
+    } else {
+      SyncPill.hide(2000);
+    }
+  });
+
+  // 4. Show offline pill when network drops
+  window.addEventListener('offline', () => {
+    SyncPill.setOffline();
+  });
+}
+
 
 function updateCloudUI() {
   const accountLabel = document.getElementById("cloud-account-label");
@@ -4212,34 +4578,39 @@ function updateCloudUI() {
   const syncHeaderBtn = document.getElementById("btn-sync-now-header");
   const lastSyncText = document.getElementById("last-sync-subtext");
   const statusIcon = document.getElementById("cloud-status-icon");
+  const logoutRow = document.getElementById("btn-profile-logout");
 
   if (state.auth && state.auth.token) {
-    if (accountLabel) accountLabel.textContent = `Logged in: ${state.auth.email}`;
-    if (accountSubtext) accountSubtext.textContent = "Tap to logout";
+    if (accountLabel) accountLabel.textContent = "Regimen Sync";
+    if (accountSubtext) accountSubtext.textContent = state.auth.email;
     if (statusIcon) {
       statusIcon.setAttribute("data-lucide", "cloud");
       statusIcon.style.color = "var(--color-success)";
     }
     if (syncRow) syncRow.classList.remove("hidden");
     if (syncHeaderBtn) syncHeaderBtn.classList.remove("hidden");
+    if (logoutRow) logoutRow.classList.remove("hidden");
     if (lastSyncText) {
       const timeStr = state.auth.lastSyncTime > 0 
         ? new Date(state.auth.lastSyncTime).toLocaleTimeString() 
         : "Never";
-      lastSyncText.textContent = `Last synced: ${timeStr}`;
+      lastSyncText.textContent = `Last: ${timeStr}`;
     }
   } else {
-    if (accountLabel) accountLabel.textContent = "Sign In to Sync";
-    if (accountSubtext) accountSubtext.textContent = "Access workouts on other devices";
+    if (accountLabel) accountLabel.textContent = "Regimen Sync";
+    if (accountSubtext) accountSubtext.textContent = "Tap to link profile";
     if (statusIcon) {
       statusIcon.setAttribute("data-lucide", "cloud-off");
       statusIcon.style.color = "var(--text-muted)";
     }
     if (syncRow) syncRow.classList.add("hidden");
     if (syncHeaderBtn) syncHeaderBtn.classList.add("hidden");
+    if (logoutRow) logoutRow.classList.add("hidden");
   }
+
   if (window.lucide) window.lucide.createIcons();
 }
+
 
 let activeAuthTab = "login";
 
@@ -4319,10 +4690,21 @@ async function handleAuthSubmit() {
       isAdmin: !!data.isAdmin
     };
     localStorage.removeItem("bebig_guest_mode");
+
+    // Mark all existing local custom items as dirty so they sync up to the database of this authenticated user
+    state.exercises.forEach(ex => {
+      if (ex.id && String(ex.id).startsWith("custom-")) {
+        ex.dirty = 1;
+      }
+    });
+    state.templates.forEach(t => { t.dirty = 1; });
+    state.history.forEach(h => { h.dirty = 1; });
+
     saveAllState();
 
     document.getElementById("modal-cloud-auth").classList.add("hidden");
-    syncData();
+    syncData(true);
+
 
   } catch (err) {
     if (errorEl) {
@@ -4397,58 +4779,148 @@ function renderAdminClientsList(clients) {
   }
 
   container.innerHTML = "";
-  clients.forEach(client => {
-    const card = document.createElement("div");
-    card.className = "admin-client-card";
-    if (client.banned === 1) {
-      card.classList.add("banned");
-    }
-    
-    let lastActiveText = "Never";
-    if (client.last_workout_time) {
-      lastActiveText = new Date(client.last_workout_time).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
 
+  // Helper: format a timestamp into a friendly relative string
+  function formatRelTime(ts) {
+    if (!ts) return 'Never';
+    const diffMs = Date.now() - ts;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 30) return `${diffD}d ago`;
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+  }
+
+  function formatJoinDate(ts) {
+    if (!ts) return '—';
+    return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  clients.forEach(client => {
     const isBanned = client.banned === 1;
-    const nameDisplay = client.name ? `${client.name} <span style="font-size:0.72rem; color:var(--text-dark); font-weight:normal;">(${client.email})</span>` : client.email;
-    const bannedBadge = isBanned ? `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: var(--color-danger); border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.6rem; padding: 2px 6px; margin-left: 8px; vertical-align: middle; display: inline-block;">Banned</span>` : '';
+    const displayName = client.name || client.email.split('@')[0];
+    const initial = displayName.charAt(0).toUpperCase();
+    const joinedStr = formatJoinDate(client.created_at);
+    const lastSeenStr = client.last_seen ? formatRelTime(client.last_seen) : (client.last_workout_time ? formatRelTime(client.last_workout_time) : 'Never');
+    const isRecentlyActive = client.last_seen && (Date.now() - client.last_seen) < 5 * 60 * 1000; // within 5 min
+    const statusDotColor = isBanned ? '#ef4444' : (isRecentlyActive ? '#10b981' : '#6b7280');
+    const statusLabel = isBanned ? 'BANNED' : (isRecentlyActive ? 'ACTIVE' : 'OFFLINE');
+    const statusBg = isBanned ? 'rgba(239,68,68,0.12)' : (isRecentlyActive ? 'rgba(16,185,129,0.12)' : 'rgba(107,114,128,0.12)');
+    const statusColor = isBanned ? '#ef4444' : (isRecentlyActive ? '#10b981' : '#9ca3af');
+
+    // Avatar gradient — cycle through a few palettes based on initial
+    const gradients = [
+      'linear-gradient(135deg,#6366f1,#8b5cf6)',
+      'linear-gradient(135deg,#10b981,#059669)',
+      'linear-gradient(135deg,#f59e0b,#d97706)',
+      'linear-gradient(135deg,#3b82f6,#2563eb)',
+      'linear-gradient(135deg,#ec4899,#db2777)',
+      'linear-gradient(135deg,#14b8a6,#0d9488)',
+    ];
+    const grad = gradients[initial.charCodeAt(0) % gradients.length];
+
+    const card = document.createElement('div');
+    card.className = 'admin-client-card';
+    if (isBanned) card.classList.add('banned');
+    card.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s;';
 
     card.innerHTML = `
-      <div class="admin-client-email" style="display: flex; justify-content: space-between; align-items: center; width: 100%; word-break: break-all;">
-        <span>${nameDisplay}</span>
-        ${bannedBadge}
+      <!-- Top row: avatar + name/email + status capsule -->
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="position: relative; flex-shrink: 0;">
+          <div style="width: 46px; height: 46px; border-radius: 50%; background: ${grad}; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; font-weight: 800; color: #fff;">${initial}</div>
+          <span style="position: absolute; bottom: 1px; right: 1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--bg-card); background: ${statusDotColor};"></span>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 0.88rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${displayName}</div>
+          <div style="font-size: 0.68rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${client.email}</div>
+        </div>
+        <span style="flex-shrink: 0; padding: 3px 9px; border-radius: 20px; background: ${statusBg}; color: ${statusColor}; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em;">${statusLabel}</span>
       </div>
-      <div class="admin-client-meta-grid">
-        <div class="admin-client-meta-item">
-          <span class="admin-client-meta-label">Workouts</span>
-          <span class="admin-client-meta-value">${client.workouts_count || 0} logs</span>
+
+      <!-- Mini detail cards: Joined + Last Seen -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 10px; padding: 8px 10px;">
+          <div style="font-size: 0.55rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 3px;">Joined</div>
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-main);">${joinedStr}</div>
         </div>
-        <div class="admin-client-meta-item">
-          <span class="admin-client-meta-label">Routines</span>
-          <span class="admin-client-meta-value">${client.templates_count || 0} templates</span>
-        </div>
-        <div class="admin-client-meta-item">
-          <span class="admin-client-meta-label">Joined</span>
-          <span class="admin-client-meta-value">${new Date(client.created_at).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span>
-        </div>
-        <div class="admin-client-meta-item">
-          <span class="admin-client-meta-label">Last Active</span>
-          <span class="admin-client-meta-value">${lastActiveText}</span>
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 10px; padding: 8px 10px;">
+          <div style="font-size: 0.55rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 3px;">Last Active</div>
+          <div style="font-size: 0.75rem; font-weight: 700; color: ${isRecentlyActive ? '#10b981' : 'var(--text-main)'}">${lastSeenStr}</div>
         </div>
       </div>
-      <div class="admin-client-actions">
-        <button class="btn-admin-view-profile" data-id="${client.id}" style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-          <i data-lucide="shield-alert" style="width: 14px; height: 14px;"></i> Details / Manage
+
+      <!-- 4 action buttons -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+        <button class="ac-btn-details" data-id="${client.id}" title="View Details"
+          style="background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); border-radius: 10px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: opacity 0.2s;">
+          <i data-lucide="eye" style="width:15px; height:15px; color:#818cf8;"></i>
+          <span style="font-size:0.55rem; color:#818cf8; font-weight:700;">Details</span>
+        </button>
+        <button class="ac-btn-reset" data-id="${client.id}" title="Reset Password"
+          style="background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); border-radius: 10px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: opacity 0.2s;">
+          <i data-lucide="key-round" style="width:15px; height:15px; color:#10b981;"></i>
+          <span style="font-size:0.55rem; color:#10b981; font-weight:700;">Reset</span>
+        </button>
+        <button class="ac-btn-ban" data-id="${client.id}" data-banned="${client.banned}" title="${isBanned ? 'Unban' : 'Ban'} Client"
+          style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); border-radius: 10px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: opacity 0.2s;">
+          <i data-lucide="${isBanned ? 'unlock' : 'ban'}" style="width:15px; height:15px; color:#f59e0b;"></i>
+          <span style="font-size:0.55rem; color:#f59e0b; font-weight:700;">${isBanned ? 'Unban' : 'Ban'}</span>
+        </button>
+        <button class="ac-btn-delete" data-id="${client.id}" data-email="${client.email}" title="Delete Account"
+          style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: opacity 0.2s;">
+          <i data-lucide="trash-2" style="width:15px; height:15px; color:#ef4444;"></i>
+          <span style="font-size:0.55rem; color:#ef4444; font-weight:700;">Delete</span>
         </button>
       </div>
     `;
 
-    // Bind Assign button
-    card.querySelector(".btn-admin-view-profile").addEventListener("click", () => {
+    // Wire up Details button
+    card.querySelector('.ac-btn-details').addEventListener('click', () => openAdminClientDetailModal(client));
+
+    // Wire up Reset button — opens inspector focused on password field
+    card.querySelector('.ac-btn-reset').addEventListener('click', () => {
       openAdminClientDetailModal(client);
+      setTimeout(() => {
+        const pw = document.getElementById('input-admin-reset-password');
+        if (pw) pw.focus();
+      }, 200);
+    });
+
+    // Wire up Ban button (inline quick-action)
+    card.querySelector('.ac-btn-ban').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const newBanned = client.banned === 1 ? 0 : 1;
+      const action = newBanned === 1 ? 'ban' : 'unban';
+      if (!confirm(`Are you sure you want to ${action} ${client.email}?`)) return;
+      try {
+        const res = await apiFetch(`/api/admin/client/${client.id}/ban`, { method: 'POST', body: JSON.stringify({ banned: newBanned === 1 }) });
+        if (res.success) {
+          client.banned = newBanned;
+          showToast(`Client ${action}ned successfully.`, 'success');
+          loadAdminView();
+        }
+      } catch (err) {
+        showToast('Action failed: ' + err.message, 'error');
+      }
+    });
+
+    // Wire up Delete button (inline quick-action)
+    card.querySelector('.ac-btn-delete').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Permanently delete account for ${client.email}? This cannot be undone.`)) return;
+      try {
+        const res = await apiFetch(`/api/admin/client/${client.id}`, { method: 'DELETE' });
+        if (res.success) {
+          showToast('Account permanently deleted.', 'success');
+          loadAdminView();
+        }
+      } catch (err) {
+        showToast('Delete failed: ' + err.message, 'error');
+      }
     });
 
     container.appendChild(card);
@@ -4457,91 +4929,97 @@ function renderAdminClientsList(clients) {
   if (window.lucide) window.lucide.createIcons();
 }
 
+
 function openAdminClientDetailModal(client) {
   selectedAdminClient = client;
   
   const modal = document.getElementById("modal-admin-client-detail");
   if (!modal) return;
 
-  // Reset tab selectors and active sections
-  const tabAssign = document.getElementById("btn-admin-tab-assign");
-  const tabLogs = document.getElementById("btn-admin-tab-logs");
-  if (tabAssign && tabLogs) {
-    tabAssign.classList.add("active");
-    tabLogs.classList.remove("active");
-    document.getElementById("admin-detail-assign-section").classList.remove("hidden");
-    document.getElementById("admin-detail-logs-section").classList.add("hidden");
-    document.getElementById("admin-detail-footer").classList.remove("hidden");
+  // --- Populate User Inspector fields ---
+
+  const displayName = client.name || client.email.split('@')[0];
+  const initial = displayName.charAt(0).toUpperCase();
+  const isBanned = client.banned === 1;
+
+  // Avatar
+  const avatarInitialEl = document.getElementById('inspector-avatar-initial');
+  if (avatarInitialEl) avatarInitialEl.textContent = initial;
+
+  // Status dot
+  const dotEl = document.getElementById('inspector-status-dot');
+  const isRecentlyActive = client.last_seen && (Date.now() - client.last_seen) < 5 * 60 * 1000;
+  if (dotEl) dotEl.style.background = isBanned ? '#ef4444' : (isRecentlyActive ? '#10b981' : '#6b7280');
+
+  // Name + email
+  const nameEl = document.getElementById('inspector-name');
+  if (nameEl) nameEl.textContent = displayName;
+  const emailEl = document.getElementById('inspector-email');
+  if (emailEl) emailEl.textContent = client.email;
+
+  // Copy email button
+  const copyBtn = document.getElementById('btn-inspector-copy-email');
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(client.email).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+      });
+    };
   }
 
-  // Set header & basic details
-  document.getElementById("admin-detail-client-email").textContent = client.email;
-  document.getElementById("admin-client-workouts-count").textContent = client.workouts_count || 0;
-  document.getElementById("admin-client-templates-count").textContent = client.templates_count || 0;
-  document.getElementById("admin-client-joined-date").textContent = new Date(client.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
-  
-  const idEl = document.getElementById("admin-client-unique-id");
-  if (idEl) idEl.textContent = client.id;
-  
+  // User ID
+  const userIdEl = document.getElementById('inspector-user-id');
+  if (userIdEl) userIdEl.textContent = `usr_${client.id}`;
+
+  // Status text
+  const statusEl = document.getElementById('inspector-status-text');
+  if (statusEl) statusEl.textContent = isBanned ? '🚫 Banned' : '✅ Active';
+
+  // Joined
+  const joinedEl = document.getElementById('inspector-joined');
+  if (joinedEl && client.created_at) {
+    joinedEl.textContent = new Date(client.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Last Seen
+  const lastSeenEl = document.getElementById('inspector-last-seen');
+  if (lastSeenEl) {
+    const lastTs = client.last_seen || client.last_workout_time;
+    if (lastTs) {
+      lastSeenEl.textContent = new Date(lastTs).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } else {
+      lastSeenEl.textContent = 'Never';
+    }
+  }
+
+  // Device
+  const deviceEl = document.getElementById('inspector-device');
+  if (deviceEl) deviceEl.textContent = client.device || 'Offline';
+
+  // Workouts count
+  const workoutsEl = document.getElementById('inspector-workouts');
+  if (workoutsEl) workoutsEl.textContent = client.workouts_count || 0;
+
+  // Clear password input
   const passEl = document.getElementById("input-admin-reset-password");
   if (passEl) passEl.value = "";
-  
-  let lastActiveText = "Never";
-  if (client.last_workout_time) {
-    lastActiveText = new Date(client.last_workout_time).toLocaleString();
-  }
-  document.getElementById("admin-client-last-active").textContent = lastActiveText;
 
-  // Set Danger Zone Ban button state
+  // Ban button label
   const banBtn = document.getElementById("btn-admin-ban-client");
   if (banBtn) {
-    if (client.banned === 1) {
-      banBtn.innerHTML = `<i data-lucide="unlock" style="width:14px; height:14px;"></i> Unban Client`;
-      banBtn.classList.add("active");
+    if (isBanned) {
+      banBtn.innerHTML = `<i data-lucide="unlock" style="width:15px; height:15px;"></i> Unban Account`;
+      banBtn.style.borderColor = 'rgba(16,185,129,0.35)';
+      banBtn.style.background = 'rgba(16,185,129,0.06)';
+      banBtn.style.color = '#10b981';
     } else {
-      banBtn.innerHTML = `<i data-lucide="ban" style="width:14px; height:14px;"></i> Ban Client`;
-      banBtn.classList.remove("active");
+      banBtn.innerHTML = `<i data-lucide="ban" style="width:15px; height:15px;"></i> Ban Account`;
+      banBtn.style.borderColor = 'rgba(239,68,68,0.35)';
+      banBtn.style.background = 'rgba(239,68,68,0.06)';
+      banBtn.style.color = '#ef4444';
     }
   }
-
-  // Load client training history reports
-  loadAdminClientHistoryLogs(client.id);
-
-  // Populate blueprint select
-  const defaultGroup = document.getElementById("admin-default-templates-group");
-  const yourGroup = document.getElementById("admin-your-templates-group");
-  
-  if (defaultGroup) {
-    defaultGroup.innerHTML = DEFAULT_TEMPLATES.map((t, idx) => `
-      <option value="default_${idx}">${t.name} (${t.exercises.length} ex)</option>
-    `).join("");
-  }
-
-  if (yourGroup) {
-    const customTemplates = state.templates.filter(t => !t.deleted);
-    if (customTemplates.length > 0) {
-      yourGroup.innerHTML = customTemplates.map(t => `
-        <option value="custom_${t.id}">${t.name} (${t.exercises.length} ex)</option>
-      `).join("");
-    } else {
-      yourGroup.innerHTML = `<option disabled>No templates created yet</option>`;
-    }
-  }
-
-  // Set default state to scratch custom
-  document.getElementById("admin-assign-template-select").value = "custom_empty";
-  
-  adminBuilderWorkout = {
-    name: "",
-    notes: "",
-    exercises: []
-  };
-  
-  // Fill inputs
-  document.getElementById("input-admin-template-name").value = "";
-  document.getElementById("input-admin-template-notes").value = "";
-  
-  renderAdminBuilderExercises();
 
   modal.classList.remove("hidden");
   if (window.lucide) window.lucide.createIcons();
@@ -5201,6 +5679,14 @@ function setupAiCoachAndRecoveryListeners() {
     });
   }
 
+  const btnExerciseLibrary = document.getElementById("btn-exercise-library-trigger");
+  if (btnExerciseLibrary) {
+    btnExerciseLibrary.addEventListener("click", () => {
+      switchView("exercises");
+    });
+  }
+
+
   if (btnCloseAiCoach && modalAiCoach) {
     btnCloseAiCoach.addEventListener("click", () => {
       modalAiCoach.classList.add("hidden");
@@ -5381,7 +5867,7 @@ function setupAiCoachAndRecoveryListeners() {
       renderStartView();
 
       if (state.auth && state.auth.token) {
-        syncData();
+        syncData(true);
       }
     });
   }

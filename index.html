@@ -9,10 +9,17 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Animate.css - micro-animations -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=28">
+  <link rel="stylesheet" href="index.css?v=30">
+  
+  <!-- GSAP (GreenSock Animation Platform) - premium animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+
 </head>
 <body>
   <!-- SPLASH SCREEN LAYER -->
@@ -106,10 +113,6 @@
         <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
           <button id="btn-sync-now-header" class="btn-icon-only-flat hidden" title="Sync with Cloud">
             <i data-lucide="cloud-lightning" style="width: 18px; height: 18px; color: var(--text-dark);"></i>
-          </button>
-          <button id="active-timer-widget" class="active-timer-widget hidden">
-            <i data-lucide="timer"></i>
-            <span id="widget-timer-text">00:00</span>
           </button>
           <div class="profile-avatar">AB</div>
         </div>
@@ -299,6 +302,20 @@
               <i data-lucide="sparkles"></i>
             </div>
           </div>
+
+          <!-- Exercise Library Card -->
+          <div class="action-card exercise-library-card" id="btn-exercise-library-trigger" style="margin-top: 10px;">
+            <div class="action-card-content">
+              <h3>
+                <i data-lucide="dumbbell" class="exercises-dumbbell-icon" style="color: var(--color-primary); width: 18px; height: 18px; margin-right: 4px; vertical-align: middle;"></i> Exercise Database
+              </h3>
+              <p>Browse exercise guides and build custom movements</p>
+            </div>
+            <div class="action-card-icon" style="background: rgba(0, 242, 254, 0.12); color: #00f2fe; box-shadow: 0 0 16px rgba(0, 242, 254, 0.15);">
+              <i data-lucide="book-open"></i>
+            </div>
+          </div>
+
 
           <!-- Templates Section -->
           <div class="section-header">
@@ -525,11 +542,11 @@
           </div>
 
           <div class="settings-group" id="settings-cloud-group">
-            <h3>Cloud Sync</h3>
+            <h3>Sync Engine</h3>
             <div class="settings-row clickable" id="btn-cloud-account">
               <div class="settings-row-text">
-                <span class="settings-label" id="cloud-account-label">Sign In to Sync</span>
-                <span class="settings-subtext" id="cloud-account-subtext">Access workouts on other devices</span>
+                <span class="settings-label" id="cloud-account-label">Regimen Sync</span>
+                <span class="settings-subtext" id="cloud-account-subtext">Tap to link profile</span>
               </div>
               <div class="settings-row-action">
                 <i data-lucide="cloud" class="settings-row-icon" id="cloud-status-icon"></i>
@@ -539,11 +556,37 @@
             
             <div class="settings-row clickable hidden" id="btn-sync-now">
               <div class="settings-row-text">
-                <span class="settings-label">Sync Now</span>
-                <span class="settings-subtext" id="last-sync-subtext">Last synced: Never</span>
+                <span class="settings-label">Force Sync</span>
+                <span class="settings-subtext" id="last-sync-subtext">Last: Never</span>
               </div>
               <div class="settings-row-action">
                 <i data-lucide="refresh-cw" class="settings-row-icon"></i>
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row-text">
+                <span class="settings-label">Broadcast Filter</span>
+                <span class="settings-subtext">Show alerts from last</span>
+              </div>
+              <select id="select-broadcast-duration" class="select-dropdown">
+                <option value="always">Always</option>
+                <option value="24">24 hours</option>
+                <option value="12" selected>12 hours</option>
+                <option value="6">6 hours</option>
+                <option value="1">1 hour</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+
+            <div class="settings-row clickable hidden danger" id="btn-profile-logout">
+              <div class="settings-row-text">
+                <span class="settings-label">Log Out</span>
+                <span class="settings-subtext">Sign out of session</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="log-out" class="settings-row-icon" style="color: var(--color-danger);"></i>
                 <i data-lucide="chevron-right" class="settings-row-chevron"></i>
               </div>
             </div>
@@ -554,7 +597,7 @@
             <div class="settings-row">
               <div class="settings-row-text">
                 <span class="settings-label">Weight Unit</span>
-                <span class="settings-subtext">Set standard units for logs</span>
+                <span class="settings-subtext">Select units</span>
               </div>
               <div class="toggle-switch-container">
                 <button id="btn-unit-lbs" class="toggle-btn active">lbs</button>
@@ -564,23 +607,23 @@
 
             <div class="settings-row">
               <div class="settings-row-text">
-                <span class="settings-label">Default Rest Duration</span>
-                <span class="settings-subtext">Default countdown seconds</span>
+                <span class="settings-label">Default Rest</span>
+                <span class="settings-subtext">Countdown time</span>
               </div>
               <select id="select-default-rest" class="select-dropdown">
-                <option value="30">30 seconds</option>
-                <option value="60">1 minute</option>
-                <option value="90" selected>1:30 minutes</option>
-                <option value="120">2 minutes</option>
-                <option value="180">3 minutes</option>
-                <option value="300">5 minutes</option>
+                <option value="30">30s</option>
+                <option value="60">1m</option>
+                <option value="90" selected>1m 30s</option>
+                <option value="120">2m</option>
+                <option value="180">3m</option>
+                <option value="300">5m</option>
               </select>
             </div>
 
             <div class="settings-row">
               <div class="settings-row-text">
-                <span class="settings-label">Rest Timer Notifications</span>
-                <span class="settings-subtext">Notify when countdown completes</span>
+                <span class="settings-label">Audio Alerts</span>
+                <span class="settings-subtext">Beep on rest complete</span>
               </div>
               <div class="toggle-switch-container">
                 <button id="btn-notif-off" class="toggle-btn active">Off</button>
@@ -590,11 +633,11 @@
           </div>
 
           <div class="settings-group">
-            <h3>Data Backup</h3>
+            <h3>Data Management</h3>
             <div class="settings-row clickable" id="btn-export-data">
               <div class="settings-row-text">
-                <span class="settings-label">Export Data</span>
-                <span class="settings-subtext">Save logs and templates to JSON</span>
+                <span class="settings-label">Export Backup</span>
+                <span class="settings-subtext">Save logs to JSON</span>
               </div>
               <div class="settings-row-action">
                 <i data-lucide="download" class="settings-row-icon"></i>
@@ -604,8 +647,8 @@
             
             <div class="settings-row clickable" id="btn-import-trigger">
               <div class="settings-row-text">
-                <span class="settings-label">Import Data</span>
-                <span class="settings-subtext">Restore logs from a JSON file</span>
+                <span class="settings-label">Import Backup</span>
+                <span class="settings-subtext">Restore logs from JSON</span>
               </div>
               <div class="settings-row-action">
                 <i data-lucide="upload" class="settings-row-icon"></i>
@@ -613,14 +656,11 @@
               </div>
             </div>
             <input type="file" id="input-import-file" accept=".json" class="hidden">
-          </div>
 
-          <div class="settings-group">
-            <h3>Danger Zone</h3>
             <div class="settings-row clickable danger" id="btn-reset-data">
               <div class="settings-row-text">
-                <span class="settings-label">Reset Application Data</span>
-                <span class="settings-subtext">Permanently wipe all workouts and templates</span>
+                <span class="settings-label">Wipe Database</span>
+                <span class="settings-subtext">Clear local data</span>
               </div>
               <div class="settings-row-action">
                 <i data-lucide="trash-2" class="settings-row-icon"></i>
@@ -630,10 +670,11 @@
           </div>
 
           <div class="settings-footer">
-            <p>BeBig Workout Tracker v1.0.0 (Stable release)</p>
+            <p>BeBig Workout Tracker v1.0.0</p>
             <p class="settings-subtext">Developed by Aditya Patil</p>
           </div>
         </section>
+
 
         <!-- 6. ADMIN VIEW -->
         <section id="view-admin" class="app-view">
@@ -710,7 +751,7 @@
             </div>
 
             <!-- Clients List -->
-            <div id="admin-clients-list" class="templates-grid">
+            <div id="admin-clients-list" style="display: flex; flex-direction: column; gap: 12px;">
               <!-- Dynamic client cards will load here -->
               <div class="skeleton-loader"></div>
             </div>
@@ -744,6 +785,12 @@
           </div>
         </section>
 
+      </div>
+
+      <!-- LIVE SYNC STATUS PILL (floats above bottom nav) -->
+      <div id="sync-status-pill" class="sync-status-pill hidden">
+        <span id="sync-pill-dot" class="sync-pill-dot"></span>
+        <span id="sync-pill-text">Synced</span>
       </div>
 
       <!-- App Navigation Bar (Bottom Navigation) -->
@@ -1061,38 +1108,52 @@
 
   <!-- MODAL: CLOUD AUTH (Login / Signup) -->
   <div id="modal-cloud-auth" class="modal-overlay hidden">
-    <div class="modal-content standard">
-      <div class="modal-header">
-        <h2 id="auth-modal-title">Cloud Account</h2>
-        <button class="btn-close-modal" id="btn-close-cloud-auth"><i data-lucide="x"></i></button>
-      </div>
-      <div class="modal-body">
+    <div class="modal-content standard" style="max-width: 380px; border-radius: 24px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
+      <div class="modal-body" style="padding: 26px 20px 20px 20px;">
+        <div style="text-align: center; margin-bottom: 22px;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);">
+            <i data-lucide="lock" style="width: 22px; height: 22px; stroke-width: 2.5;"></i>
+          </div>
+          <h2 id="auth-modal-title" style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; margin-bottom: 5px;">BeBig Engine Authentication</h2>
+          <p style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0 10px;">Authenticate your credentials to securely synchronize custom regimens, weekly protocols, and workout logs across all desktop and mobile platforms.</p>
+
+        </div>
+
         <!-- Tabs for Login/Signup -->
-        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 16px;">
+        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 18px; padding: 4px;">
           <button id="btn-tab-login" class="toggle-btn active" style="width: 50%;">Login</button>
           <button id="btn-tab-signup" class="toggle-btn" style="width: 50%;">Sign Up</button>
         </div>
 
-        <div id="auth-error-msg" class="empty-state-text hidden" style="color: var(--color-danger); padding: 5px 0 12px 0; text-align: left; font-weight: 500;"></div>
+        <div id="auth-error-msg" class="empty-state-text hidden" style="color: var(--color-danger); padding: 5px 0 12px 0; text-align: left; font-weight: 500; font-size: 0.8rem;"></div>
 
-        <div class="form-group hidden" id="group-auth-name">
-          <label for="input-auth-name">Full Name</label>
-          <input type="text" id="input-auth-name" placeholder="e.g. Aditya Patil">
+        <div class="form-group hidden" id="group-auth-name" style="margin-bottom: 14px;">
+          <label for="input-auth-name" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Full Name</label>
+          <div style="position: relative;">
+            <i data-lucide="user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
+            <input type="text" id="input-auth-name" placeholder="e.g. Aditya Patil" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="input-auth-email">Email Address</label>
-          <input type="text" id="input-auth-email" placeholder="e.g. aditya@gmail.com">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="input-auth-email" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Email Address</label>
+          <div style="position: relative;">
+            <i data-lucide="mail" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
+            <input type="text" id="input-auth-email" placeholder="e.g. aditya@gmail.com" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+          </div>
         </div>
         
-        <div class="form-group">
-          <label for="input-auth-password">Password</label>
-          <input type="password" id="input-auth-password" placeholder="Min 6 characters">
+        <div class="form-group" style="margin-bottom: 18px;">
+          <label for="input-auth-password" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Password</label>
+          <div style="position: relative;">
+            <i data-lucide="key-round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
+            <input type="password" id="input-auth-password" placeholder="Min 6 characters" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+          </div>
         </div>
       </div>
-      <div class="modal-footer" style="display: flex; flex-direction: column; gap: 8px;">
-        <button id="btn-auth-submit" class="btn-success btn-full-width">Login</button>
-        <button id="btn-auth-guest" class="btn-secondary btn-full-width">Continue as Guest (Offline Mode)</button>
+      <div class="modal-footer" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 22px 16px; border-top: none; background: rgba(255,255,255,0.01);">
+        <button id="btn-auth-submit" class="btn-success btn-full-width" style="height: 42px; border-radius: 10px; font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;">Login</button>
+        <button id="btn-auth-guest" class="btn-secondary btn-full-width" style="height: 42px; border-radius: 10px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.06); background: transparent;">Continue as Guest (Offline Mode)</button>
       </div>
     </div>
   </div>
@@ -1117,7 +1178,26 @@
     </div>
   </div>
 
+
+  <!-- MODAL: PREMIUM CUSTOM CONFIRMATION DIALOG -->
+  <div id="modal-custom-confirm" class="modal-overlay hidden" style="z-index: 4000;">
+    <div class="modal-content standard" style="max-width: 340px; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 20px 50px rgba(0,0,0,0.65);">
+      <div class="modal-body" style="padding: 24px 20px; text-align: center;">
+        <div id="confirm-dialog-icon" style="width: 48px; height: 48px; border-radius: 50%; background: rgba(244, 63, 94, 0.12); color: var(--color-danger); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px auto; font-size: 1.4rem;">
+          ⚠️
+        </div>
+        <h2 id="confirm-dialog-title" style="font-family: var(--font-heading); font-size: 1.2rem; font-weight: 800; margin-bottom: 8px; color: var(--text-main);">Confirm Discard</h2>
+        <p id="confirm-dialog-message" style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.4;">Are you sure you want to proceed?</p>
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 10px; padding: 12px 16px 20px 16px; border-top: none;">
+        <button id="btn-confirm-dialog-cancel" class="btn-secondary" style="flex: 1; padding: 10px; font-size: 0.85rem; height: 38px; border-radius: 10px;">Cancel</button>
+        <button id="btn-confirm-dialog-ok" class="btn-danger" style="flex: 1; padding: 10px; font-size: 0.85rem; height: 38px; border-radius: 10px; font-family: var(--font-heading); font-weight: 700;">Discard</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: SCHEDULE PICKER -->
+
   <div id="modal-schedule-picker" class="modal-overlay hidden">
     <div class="modal-content drawer">
       <div class="modal-header">
@@ -1137,131 +1217,126 @@
   </div>
 
   <!-- MODAL: ADMIN CLIENT DETAIL & ROUTINE ASSIGNER -->
+  <!-- MODAL: USER INSPECTOR (Admin Client Deep-Dive) -->
   <div id="modal-admin-client-detail" class="modal-overlay hidden">
-    <div class="modal-content standard admin-detail">
-      <div class="modal-header">
-        <h2 id="admin-detail-client-email" style="font-size: 1.15rem; word-break: break-all;">client@email.com</h2>
+    <div class="modal-content standard" style="max-width: 420px; border-radius: 20px; overflow: hidden;">
+
+      <!-- Inspector Header -->
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border-light);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 34px; height: 34px; border-radius: 10px; background: rgba(16,185,129,0.12); display: flex; align-items: center; justify-content: center; color: var(--color-primary);">
+            <i data-lucide="shield-check" style="width: 18px; height: 18px;"></i>
+          </div>
+          <h2 style="font-size: 1rem; font-weight: 800; font-family: var(--font-heading); margin: 0; color: var(--text-main);">User Inspector</h2>
+        </div>
         <button class="btn-close-modal" id="btn-close-admin-detail"><i data-lucide="x"></i></button>
       </div>
-      <div class="modal-body scrollable" style="padding-bottom: 80px;">
-        
-        <!-- Tab togglers -->
-        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 16px;">
-          <button id="btn-admin-tab-assign" class="toggle-btn active" style="width: 50%;">Assign Routine</button>
-          <button id="btn-admin-tab-logs" class="toggle-btn" style="width: 50%;">Workout Logs</button>
-        </div>
 
-        <div class="exercise-detail-section" style="margin-bottom: 20px;">
-          <h3>Client Performance Profile</h3>
-          <div class="pr-details-grid" style="grid-template-columns: repeat(3, 1fr); gap: 8px;">
-            <div class="pr-detail-card" style="padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: center;">
-              <span class="pr-card-label" style="font-size: 0.65rem; color: var(--text-dark); display: block; margin-bottom: 4px;">WORKOUTS</span>
-              <span id="admin-client-workouts-count" class="pr-card-value" style="font-size: 1.1rem; color: var(--color-primary); font-weight: 700;">-</span>
-            </div>
-            <div class="pr-detail-card" style="padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: center;">
-              <span class="pr-card-label" style="font-size: 0.65rem; color: var(--text-dark); display: block; margin-bottom: 4px;">TEMPLATES</span>
-              <span id="admin-client-templates-count" class="pr-card-value" style="font-size: 1.1rem; color: var(--color-primary); font-weight: 700;">-</span>
-            </div>
-            <div class="pr-detail-card" style="padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; text-align: center;">
-              <span class="pr-card-label" style="font-size: 0.65rem; color: var(--text-dark); display: block; margin-bottom: 4px;">JOINED</span>
-              <span id="admin-client-joined-date" class="pr-card-value" style="font-size: 0.72rem; white-space: nowrap; font-weight: 600;">-</span>
-            </div>
+      <!-- Scrollable body -->
+      <div class="modal-body scrollable" style="padding: 18px; padding-bottom: 20px;">
+
+        <!-- Profile Row -->
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px; padding: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 14px;">
+          <div id="inspector-avatar" style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 800; color: #fff; flex-shrink: 0; position: relative;">
+            <span id="inspector-avatar-initial">?</span>
+            <span id="inspector-status-dot" style="position: absolute; bottom: 1px; right: 1px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--bg-card); background: #6b7280;"></span>
           </div>
-          <div style="margin-top: 12px; font-size: 0.78rem; color: var(--text-dark); display: flex; align-items: center; gap: 6px;">
-            <i data-lucide="clock" style="width: 14px; height: 14px; color: var(--color-primary);"></i>
-            <span>Last Workout Activity: <strong id="admin-client-last-active" style="color: var(--text-main);">Never</strong></span>
-          </div>
-          <div style="margin-top: 6px; font-size: 0.78rem; color: var(--text-dark); display: flex; align-items: center; gap: 6px; word-break: break-all;">
-            <i data-lucide="fingerprint" style="width: 14px; height: 14px; color: var(--color-primary);"></i>
-            <span>User ID: <strong id="admin-client-unique-id" style="color: var(--text-main); font-family: monospace;">-</strong></span>
-          </div>
-        </div>
-
-        <!-- TAB CONTENT: ASSIGN ROUTINE -->
-        <div id="admin-detail-assign-section" class="admin-detail-tab-content">
-          <div class="exercise-detail-section">
-            <h3>Assign Routine Template</h3>
-            <p class="modal-description" style="margin-bottom: 12px; font-size: 0.78rem;">Select a blueprint to load into the builder, or design a custom one below.</p>
-            
-            <div class="form-group" style="margin-bottom: 15px;">
-              <label for="admin-assign-template-select">Workout Blueprint</label>
-              <select id="admin-assign-template-select" class="select-dropdown">
-                <option value="custom_empty">-- Design Custom Template from Scratch --</option>
-                <optgroup label="Default System Routines" id="admin-default-templates-group">
-                  <!-- Dynamically seeded -->
-                </optgroup>
-                <optgroup label="Your Saved Templates" id="admin-your-templates-group">
-                  <!-- Loaded from admin's custom routines -->
-                </optgroup>
-              </select>
-            </div>
-
-            <div id="admin-custom-template-builder" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; margin-top: 12px;">
-              <div class="form-group">
-                <label for="input-admin-template-name">Template Name</label>
-                <input type="text" id="input-admin-template-name" placeholder="e.g. Client Custom Routine" value="">
-              </div>
-              <div class="form-group">
-                <label for="input-admin-template-notes">Routines Notes / Instructions</label>
-                <input type="text" id="input-admin-template-notes" placeholder="e.g. Focus on clean reps and progressive overload." value="">
-              </div>
-
-              <h4 style="font-family: var(--font-heading); font-size: 0.85rem; margin: 15px 0 8px 0; color: var(--text-main); font-weight: 600;">Exercises List</h4>
-              <div id="admin-template-exercises-list" class="active-exercises-container" style="gap: 10px; display: flex; flex-direction: column;">
-                <!-- Exercises list with simple set inputs -->
-              </div>
-
-              <button id="btn-admin-add-exercise" class="btn-primary-outline btn-full-width" style="margin-top: 12px; font-size: 0.8rem; padding: 8px;">
-                <i data-lucide="plus" style="width:14px; height:14px; display:inline-block; vertical-align:middle; margin-right:4px;"></i> Add Exercise
-              </button>
+          <div style="flex: 1; min-width: 0;">
+            <div id="inspector-name" style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loading...</div>
+            <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
+              <span id="inspector-email" style="font-size: 0.72rem; color: var(--text-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;">email@example.com</span>
+              <button id="btn-inspector-copy-email" title="Copy Email" style="flex-shrink: 0; background: rgba(255,255,255,0.06); border: 1px solid var(--border-light); border-radius: 6px; padding: 2px 7px; font-size: 0.62rem; color: var(--text-dark); cursor: pointer; transition: all 0.2s;">Copy</button>
             </div>
           </div>
         </div>
 
-        <!-- TAB CONTENT: WORKOUT LOGS -->
-        <div id="admin-detail-logs-section" class="admin-detail-tab-content hidden">
-          <div class="exercise-detail-section">
-            <h3>Client Training History</h3>
-            <p class="modal-description" style="margin-bottom: 15px; font-size: 0.78rem;">Detailed reports of completed workouts logged by this client.</p>
-            <div id="admin-client-logs-list" style="display: flex; flex-direction: column; gap: 12px;">
-              <!-- Render client past workouts -->
-              <div class="skeleton-loader"></div>
-            </div>
+        <!-- Inspector Field Cards Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 20px;">
+          <!-- User ID (full width) -->
+          <div style="grid-column: 1 / -1; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">User ID</div>
+            <div id="inspector-user-id" style="font-size: 0.72rem; font-family: monospace; color: var(--text-main); font-weight: 600; word-break: break-all;">—</div>
+          </div>
+
+          <!-- Status -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Status</div>
+            <div id="inspector-status-text" style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">✅ Active</div>
+          </div>
+
+          <!-- Joined -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Joined</div>
+            <div id="inspector-joined" style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">—</div>
+          </div>
+
+          <!-- Last Seen -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Last Seen</div>
+            <div id="inspector-last-seen" style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">—</div>
+          </div>
+
+          <!-- Device -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Device</div>
+            <div id="inspector-device" style="font-size: 0.8rem; font-weight: 700; color: var(--text-main);">—</div>
+          </div>
+
+          <!-- Workouts -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Workouts</div>
+            <div id="inspector-workouts" style="font-size: 0.8rem; font-weight: 700; color: var(--color-primary);">0</div>
+          </div>
+
+          <!-- Password (full width) -->
+          <div style="grid-column: 1 / -1; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: 12px; padding: 11px 13px;">
+            <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Password</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">🔒 PBKDF2 Hashed <span style="color: var(--text-dark);">(use Reset to set)</span></div>
           </div>
         </div>
 
-        <!-- FORCE RESET PASSWORD -->
-        <div class="exercise-detail-section" style="margin-top: 25px; border-top: 1px solid var(--border-light); padding-top: 20px;">
-          <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin: 0 0 4px 0;">
-            <i data-lucide="key" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Reset Account Password
-          </h3>
-          <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 12px; color: var(--text-dark);">Forcefully assign a new login password for this client account if they are locked out.</p>
-          <div style="display: flex; gap: 8px;">
-            <input type="password" id="input-admin-reset-password" placeholder="Min 6 characters" style="flex-grow: 1; padding: 8px 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-main);">
-            <button id="btn-admin-reset-password-submit" class="btn-success" style="padding: 8px 14px; font-size: 0.8rem; border-radius: 10px; font-weight: 600;">Reset</button>
+        <!-- Inspector Action Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <!-- Set Password -->
+          <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); border-radius: 12px; padding: 10px 13px;">
+            <i data-lucide="key-round" style="width: 16px; height: 16px; color: var(--color-primary); flex-shrink: 0;"></i>
+            <input type="password" id="input-admin-reset-password" placeholder="Set new password (min 6 chars)" style="flex: 1; background: transparent; border: none; outline: none; font-size: 0.8rem; color: var(--text-main); padding: 0;">
+            <button id="btn-admin-reset-password-submit" style="flex-shrink: 0; background: var(--color-primary); color: #000; border: none; border-radius: 8px; padding: 5px 13px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: opacity 0.2s;">Set</button>
           </div>
+
+          <!-- Ban / Unban -->
+          <button id="btn-admin-ban-client" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 12px; border: 1.5px solid rgba(239,68,68,0.35); background: rgba(239,68,68,0.06); color: #ef4444; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; width: 100%;">
+            <i data-lucide="ban" style="width: 15px; height: 15px;"></i> Ban Account
+          </button>
+
+          <!-- Delete User (full width, danger) -->
+          <button id="btn-admin-delete-client" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 12px; border: none; background: rgba(239,68,68,0.15); color: #ef4444; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; width: 100%;">
+            <i data-lucide="trash-2" style="width: 15px; height: 15px;"></i> Delete User
+          </button>
         </div>
 
-        <!-- DANGER ZONE -->
-        <div class="exercise-detail-section danger-zone" style="margin-top: 35px; border-top: 1px dashed rgba(239, 68, 68, 0.2); padding-top: 20px; margin-bottom: 10px;">
-          <h3 style="color: var(--color-danger); display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin: 0 0 4px 0;">
-            <i data-lucide="shield-alert" style="width: 16px; height: 16px;"></i> Danger Control Zone
-          </h3>
-          <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 15px; color: var(--text-dark);">Administrative actions for this client account.</p>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button id="btn-admin-ban-client" class="btn-danger-outline" style="font-size: 0.78rem; padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <i data-lucide="ban" style="width: 14px; height: 14px;"></i> Ban Client
-            </button>
-            <button id="btn-admin-delete-client" class="btn-danger-outline" style="font-size: 0.78rem; padding: 10px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all var(--transition-smooth); display: flex; align-items: center; justify-content: center; gap: 6px;">
-              <i data-lucide="user-x" style="width: 14px; height: 14px;"></i> Delete Account
-            </button>
-          </div>
-        </div>
+        <!-- Hidden fields needed for backward compatibility with JS -->
+        <span id="admin-detail-client-email" style="display:none;"></span>
+        <span id="admin-client-workouts-count" style="display:none;"></span>
+        <span id="admin-client-templates-count" style="display:none;"></span>
+        <span id="admin-client-joined-date" style="display:none;"></span>
+        <span id="admin-client-last-active" style="display:none;"></span>
+        <span id="admin-client-unique-id" style="display:none;"></span>
+        <div id="admin-detail-assign-section" style="display:none;"></div>
+        <div id="admin-detail-logs-section" style="display:none;"></div>
+        <div id="admin-detail-footer" style="display:none;"></div>
+        <button id="btn-admin-tab-assign" style="display:none;"></button>
+        <button id="btn-admin-tab-logs" style="display:none;"></button>
+        <button id="btn-admin-assign-submit" style="display:none;"></button>
+        <select id="admin-assign-template-select" style="display:none;"></select>
+        <optgroup id="admin-default-templates-group" style="display:none;"></optgroup>
+        <optgroup id="admin-your-templates-group" style="display:none;"></optgroup>
+        <input type="text" id="input-admin-template-name" style="display:none;">
+        <input type="text" id="input-admin-template-notes" style="display:none;">
+        <div id="admin-template-exercises-list" style="display:none;"></div>
+        <button id="btn-admin-add-exercise" style="display:none;"></button>
+        <div id="admin-client-logs-list" style="display:none;"></div>
 
-      </div>
-      <div class="modal-footer" style="padding: 12px 16px; border-top: 1px solid var(--border-light);" id="admin-detail-footer">
-        <button id="btn-admin-assign-submit" class="btn-success btn-full-width">Assign Workout Template</button>
       </div>
     </div>
   </div>

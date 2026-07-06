@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS settings (
   user_id TEXT PRIMARY KEY,
   unit TEXT DEFAULT 'lbs',
   default_rest INTEGER DEFAULT 90,
+  active_workout_json TEXT,
   updated_at INTEGER NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+

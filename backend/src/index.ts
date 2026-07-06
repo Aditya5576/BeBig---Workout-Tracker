@@ -26,6 +26,17 @@ app.use(
   })
 );
 
+// Self-healing database column addition
+app.use('/api/*', async (c, next) => {
+  try {
+    await c.env.DB.prepare("ALTER TABLE settings ADD COLUMN active_workout_json TEXT").run();
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  await next();
+});
+
+
 // Password Hashing helpers using Web Crypto API
 async function hashPassword(password: string, salt: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -254,7 +265,27 @@ app.post('/api/sync/heartbeat', async (c) => {
     
     const userAgent = c.req.header('User-Agent') || 'Unknown';
     const ipAddress = c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || '127.0.0.1';
+    const now = Date.now();
+
+    // Resolve a friendly device label from User-Agent
+    let resolvedDevice = deviceInfo || 'Unknown';
+    if (!deviceInfo) {
+      const ua = userAgent.toLowerCase();
+      if (ua.includes('iphone')) resolvedDevice = 'iPhone';
+      else if (ua.includes('ipad')) resolvedDevice = 'iPad';
+      else if (ua.includes('android') && ua.includes('mobile')) resolvedDevice = 'Android Phone';
+      else if (ua.includes('android')) resolvedDevice = 'Android Tablet';
+      else if (ua.includes('macintosh') || ua.includes('mac os')) resolvedDevice = 'Mac Desktop';
+      else if (ua.includes('windows')) resolvedDevice = 'Windows PC';
+      else if (ua.includes('linux')) resolvedDevice = 'Linux PC';
+      else resolvedDevice = 'Browser';
+    }
     
+    // Persist last_seen and device into the D1 users table
+    await c.env.DB.prepare('UPDATE users SET last_seen = ?, device = ? WHERE id = ?')
+      .bind(now, resolvedDevice, userId)
+      .run();
+
     // Save to KV with 30s TTL
     const activeState = {
       userId,
@@ -263,9 +294,9 @@ app.post('/api/sync/heartbeat', async (c) => {
       activeWorkoutName: activeWorkoutName || null,
       currentExerciseName: currentExerciseName || null,
       currentMuscle: currentMuscle || null,
-      deviceInfo: deviceInfo || userAgent,
+      deviceInfo: resolvedDevice,
       ipAddress,
-      timestamp: Date.now()
+      timestamp: now
     };
     
     await c.env.SESSIONS.put(`active-user:${userId}`, JSON.stringify(activeState), { expirationTtl: 30 });
@@ -304,10 +335,10 @@ app.get('/api/sync/pull', async (c) => {
       .all();
 
     const settingsPromise = c.env.DB.prepare(
-      'SELECT unit, default_rest, updated_at FROM settings WHERE user_id = ? AND updated_at > ?'
+      'SELECT unit, default_rest, active_workout_json, updated_at FROM settings WHERE user_id = ?'
     )
-      .bind(userId, lastPulledAt)
-      .first();
+      .bind(userId)
+      .first<any>();
 
     const [exercisesRes, templatesRes, historyRes, settingsRes] = await Promise.all([
       exercisesPromise,
@@ -338,14 +369,27 @@ app.get('/api/sync/pull', async (c) => {
     const broadcastStr = await c.env.SESSIONS.get('broadcast:global');
     const broadcast = broadcastStr ? JSON.parse(broadcastStr) : null;
 
+    const activeWorkout = settingsRes?.active_workout_json ? JSON.parse(settingsRes.active_workout_json) : null;
+    
+    let settingsPayload = null;
+    if (settingsRes && (settingsRes.updated_at || 0) > lastPulledAt) {
+      settingsPayload = {
+        unit: settingsRes.unit,
+        default_rest: settingsRes.default_rest,
+        updated_at: settingsRes.updated_at
+      };
+    }
+
     return c.json({
       exercises,
       templates,
       history,
-      settings: settingsRes || null,
+      settings: settingsPayload,
+      activeWorkout,
       broadcast,
       server_time: Date.now(),
     });
+
   } catch (err: any) {
     return c.json({ error: 'Sync pull failed: ' + err.message }, 500);
   }
@@ -356,7 +400,8 @@ app.get('/api/sync/pull', async (c) => {
 // ==========================================================================
 app.post('/api/sync/push', async (c) => {
   const userId = c.var.userId;
-  const { exercises, templates, history, settings } = await c.req.json();
+  const { exercises, templates, history, settings, activeWorkout } = await c.req.json();
+
 
   try {
     const now = Date.now();
@@ -446,24 +491,31 @@ app.post('/api/sync/push', async (c) => {
       }
     }
 
-    // Upsert settings
-    if (settings) {
+    // Upsert settings & activeWorkout
+    if (settings || activeWorkout !== undefined) {
+      const existing = await c.env.DB.prepare('SELECT unit, default_rest FROM settings WHERE user_id = ?').bind(userId).first<any>();
+      const unit = settings?.unit || existing?.unit || 'lbs';
+      const defaultRest = settings?.default_rest || existing?.default_rest || 90;
+
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO settings (user_id, unit, default_rest, updated_at)
-           VALUES (?, ?, ?, ?)
+          `INSERT INTO settings (user_id, unit, default_rest, active_workout_json, updated_at)
+           VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(user_id) DO UPDATE SET
              unit = excluded.unit,
              default_rest = excluded.default_rest,
+             active_workout_json = excluded.active_workout_json,
              updated_at = excluded.updated_at`
         ).bind(
           userId,
-          settings.unit || 'lbs',
-          settings.default_rest || 90,
+          unit,
+          defaultRest,
+          activeWorkout ? JSON.stringify(activeWorkout) : null,
           now
         )
       );
     }
+
 
     // Execute all D1 queries in a single atomic batch
     if (statements.length > 0) {
@@ -527,7 +579,7 @@ app.use('/api/admin/*', async (c, next) => {
 // Get all clients (logins) and their details / stats
 app.get('/api/admin/clients', async (c) => {
   try {
-    // Select all users, and calculate their completed workouts, templates, and last workout time
+    // Select all users including last_seen and device columns
     const res = await c.env.DB.prepare(`
       SELECT 
         u.id, 
@@ -535,6 +587,8 @@ app.get('/api/admin/clients', async (c) => {
         u.name,
         u.created_at,
         u.banned,
+        u.last_seen,
+        u.device,
         (SELECT COUNT(*) FROM history h WHERE h.user_id = u.id AND h.deleted = 0) as workouts_count,
         (SELECT COUNT(*) FROM templates t WHERE t.user_id = u.id AND t.deleted = 0) as templates_count,
         (SELECT MAX(h.end_time) FROM history h WHERE h.user_id = u.id AND h.deleted = 0) as last_workout_time
@@ -747,11 +801,69 @@ app.post('/api/admin/assign-template', async (c) => {
   }
 });
 
+// Fallback Workout Generator in case AI model fails/rate-limits
+function getFallbackWorkout(goal: string, split: string, equipment: string, experience: string, duration: string) {
+  const splitName = split || 'Full Body';
+  const name = `${experience || 'Intermediate'} ${splitName} Protocol`;
+  const notes = `Personalized training session designed for ${goal || 'General Fitness'} using ${equipment || 'Full Gym'}. (Automated Fallback Engine)`;
+  
+  let exercises: any[] = [];
+  const splitLower = splitName.toLowerCase();
+  
+  if (splitLower.includes('push')) {
+    exercises = [
+      { name: 'Bench Press (Barbell)', muscle: 'Chest', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 8 }] },
+      { name: 'Overhead Press (Barbell)', muscle: 'Shoulders', category: 'Barbell', sets: [{ type: 'N', weight: 95, reps: 8 }, { type: 'N', weight: 95, reps: 8 }] },
+      { name: 'Incline Dumbbell Press', muscle: 'Chest', category: 'Dumbbell', sets: [{ type: 'N', weight: 50, reps: 10 }, { type: 'N', weight: 50, reps: 10 }] },
+      { name: 'Tricep Pushdown (Cable)', muscle: 'Triceps', category: 'Cables', sets: [{ type: 'N', weight: 60, reps: 12 }, { type: 'N', weight: 60, reps: 12 }] }
+    ];
+  } else if (splitLower.includes('pull')) {
+    exercises = [
+      { name: 'Deadlift (Barbell)', muscle: 'Back', category: 'Barbell', sets: [{ type: 'N', weight: 225, reps: 5 }, { type: 'N', weight: 225, reps: 5 }] },
+      { name: 'Pull Up', muscle: 'Back', category: 'Bodyweight', sets: [{ type: 'N', weight: 0, reps: 8 }, { type: 'N', weight: 0, reps: 8 }] },
+      { name: 'Bent Over Row (Barbell)', muscle: 'Back', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Bicep Curl (Dumbbell)', muscle: 'Biceps', category: 'Dumbbell', sets: [{ type: 'N', weight: 25, reps: 12 }, { type: 'N', weight: 25, reps: 12 }] }
+    ];
+  } else if (splitLower.includes('legs') || splitLower.includes('lower')) {
+    exercises = [
+      { name: 'Squat (Barbell)', muscle: 'Quads', category: 'Barbell', sets: [{ type: 'N', weight: 185, reps: 8 }, { type: 'N', weight: 185, reps: 8 }] },
+      { name: 'Romanian Deadlift (Barbell)', muscle: 'Hamstrings', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Leg Press', muscle: 'Quads', category: 'Machine', sets: [{ type: 'N', weight: 270, reps: 10 }, { type: 'N', weight: 270, reps: 10 }] },
+      { name: 'Calf Raise', muscle: 'Calves', category: 'Bodyweight', sets: [{ type: 'N', weight: 0, reps: 15 }, { type: 'N', weight: 0, reps: 15 }] }
+    ];
+  } else if (splitLower.includes('upper')) {
+    exercises = [
+      { name: 'Bench Press (Barbell)', muscle: 'Chest', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Bent Over Row (Barbell)', muscle: 'Back', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Dumbbell Lateral Raise', muscle: 'Shoulders', category: 'Dumbbell', sets: [{ type: 'N', weight: 15, reps: 12 }, { type: 'N', weight: 15, reps: 12 }] },
+      { name: 'Incline Dumbbell Curl', muscle: 'Biceps', category: 'Dumbbell', sets: [{ type: 'N', weight: 20, reps: 12 }, { type: 'N', weight: 20, reps: 12 }] }
+    ];
+  } else {
+    // Full Body or other
+    exercises = [
+      { name: 'Squat (Barbell)', muscle: 'Quads', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Bench Press (Barbell)', muscle: 'Chest', category: 'Barbell', sets: [{ type: 'N', weight: 135, reps: 10 }, { type: 'N', weight: 135, reps: 10 }] },
+      { name: 'Lat Pulldown', muscle: 'Back', category: 'Machine', sets: [{ type: 'N', weight: 110, reps: 10 }, { type: 'N', weight: 110, reps: 10 }] },
+      { name: 'Plank', muscle: 'Abs', category: 'Bodyweight', sets: [{ type: 'N', weight: 0, reps: 60 }, { type: 'N', weight: 0, reps: 60 }] }
+    ];
+  }
+
+  // Adjust sets count based on target duration
+  const mins = parseInt(duration, 10) || 45;
+  if (mins > 60) {
+    exercises.forEach(ex => {
+      ex.sets.push({ type: 'N', weight: ex.sets[0].weight, reps: ex.sets[0].reps });
+    });
+  }
+
+  return { name, notes, exercises };
+}
+
 // AI Workout Generation Endpoint (Open to clients and guests)
 app.post('/api/ai/generate', async (c) => {
+  const { goal, split, equipment, experience, duration } = await c.req.json();
+  
   try {
-    const { goal, split, equipment, experience, duration } = await c.req.json();
-
     const systemPrompt = `You are an expert fitness coach and personal trainer. 
 Generate a workout routine based on the user's details.
 Return ONLY a valid JSON object. Do NOT include any markdown code blocks, backticks, explanations, or extra text.
@@ -770,9 +882,7 @@ The JSON object MUST strictly follow this typescript schema:
       "reps": number (suggested target reps, e.g. 8, 10, 12)
     }>
   }>
-}
-
-Generate between 3 to 6 exercises appropriate for the split and duration. Suggest realistic weights and normal rep targets.`;
+}`;
 
     const userPrompt = `Generate a workout with the following criteria:
 - Fitness Goal: ${goal || 'General Fitness'}
@@ -781,14 +891,21 @@ Generate between 3 to 6 exercises appropriate for the split and duration. Sugges
 - Experience Level: ${experience || 'Intermediate'}
 - Target Duration: ${duration || '45'} minutes`;
 
-    const aiRes: any = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1200
-    });
+    let aiRes: any;
+    try {
+      aiRes = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 1200
+      });
+    } catch (aiErr) {
+      console.error("AI model execution failed, using fallback:", aiErr);
+      const fallbackWorkout = getFallbackWorkout(goal, split, equipment, experience, duration);
+      return c.json({ success: true, workout: fallbackWorkout, fallback: true });
+    }
 
     let rawText = '';
     if (aiRes && aiRes.response) {
@@ -804,12 +921,28 @@ Generate between 3 to 6 exercises appropriate for the split and duration. Sugges
       rawText = rawText.replace(/^```(json)?/, '').replace(/```$/, '').trim();
     }
 
-    const parsedWorkout = JSON.parse(rawText);
-    return c.json({ success: true, workout: parsedWorkout });
+    // Extract first brace and last brace for robust JSON parsing
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      rawText = rawText.substring(firstBrace, lastBrace + 1);
+    }
+
+    try {
+      const parsedWorkout = JSON.parse(rawText);
+      return c.json({ success: true, workout: parsedWorkout });
+    } catch (parseErr) {
+      console.error("Failed to parse AI JSON response, using fallback:", parseErr, rawText);
+      const fallbackWorkout = getFallbackWorkout(goal, split, equipment, experience, duration);
+      return c.json({ success: true, workout: fallbackWorkout, fallback: true });
+    }
 
   } catch (err: any) {
-    return c.json({ error: 'AI generation failed: ' + err.message }, 500);
+    // Ultimate safety wrapper to guarantee Hono never returns a 500
+    const fallbackWorkout = getFallbackWorkout(goal, split, equipment, experience, duration);
+    return c.json({ success: true, workout: fallbackWorkout, fallback: true });
   }
 });
+
 
 export default app;
