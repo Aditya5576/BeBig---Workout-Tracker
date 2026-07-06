@@ -4452,3 +4452,82 @@ input:focus, select:focus, textarea:focus {
   border: 1px solid rgba(16, 185, 129, 0.25) !important;
   color: var(--color-primary) !important;
 }
+
+/* --- Personal Records styles in Profile --- */
+.settings-pr-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-pr-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #f59e0b; /* Gold left border */
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: transform 0.22s ease, background 0.22s ease;
+}
+
+.settings-pr-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(3px);
+}
+
+.settings-pr-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-pr-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  color: var(--text-main);
+}
+
+.settings-pr-date {
+  font-size: 0.7rem;
+  color: var(--text-dark);
+}
+
+.settings-pr-val-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.settings-pr-weight {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f59e0b; /* Gold color */
+  text-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.settings-pr-1rm {
+  font-size: 0.72rem;
+  color: var(--text-dark);
+}
+
+.pr-trophy-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.trophy-gold-icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2.5;
+  color: #f59e0b;
+}
+

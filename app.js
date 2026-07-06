@@ -1537,8 +1537,38 @@ function finishActiveWorkout() {
     dirty: 1
   };
 
+  // Detect if any exercise set in this workout sets a new Personal Record
+  completedWorkout.exercises.forEach(ex => {
+    let prevMax = 0;
+    state.history.forEach(h => {
+      if (!h.deleted) {
+        const histEx = h.exercises.find(e => e.exerciseId === ex.exerciseId);
+        if (histEx) {
+          histEx.sets.forEach(s => {
+            const wt = parseFloat(s.weight) || 0;
+            if (wt > prevMax) prevMax = wt;
+          });
+        }
+      }
+    });
+
+    let currMax = 0;
+    ex.sets.forEach(s => {
+      const wt = parseFloat(s.weight) || 0;
+      if (wt > currMax) currMax = wt;
+    });
+
+    // If there was a previous lift and they lifted more, it is a PR!
+    if (prevMax > 0 && currMax > prevMax) {
+      ex.isPR = true;
+      // Synthesize a brief extra high pitch chime
+      setTimeout(() => SoundSynth.beep(880, 0.1), 120);
+    }
+  });
+
   // Push to history
   state.history.push(completedWorkout);
+
   
   // Clear active workout
   state.activeWorkout = null;
@@ -2314,12 +2344,16 @@ function renderHistoryView(searchQuery = "") {
       const name = det ? det.name : "Exercise";
       const setsStr = ex.sets.map(s => `${s.weight}×${s.reps}`).join(", ");
       
+      const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" class="trophy-gold-icon"></i></span>` : '';
+
       exerciseLinesHTML += `
-        <div class="history-exercise-line">
+        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px;">
+          ${prBadge}
           <strong class="history-exercise-name">${name}</strong> — ${ex.sets.length} sets (${setsStr})
         </div>
       `;
     });
+
 
     card.innerHTML = `
       <div class="history-card-header">
@@ -3306,7 +3340,71 @@ function loadSettingsView() {
       adminContainer.innerHTML = "";
     }
   }
+
+  // Render Personal Records in Profile
+  renderSettingsPersonalRecords();
 }
+
+function renderSettingsPersonalRecords() {
+  const container = document.getElementById("settings-personal-records-list");
+  if (!container) return;
+
+  const prs = [];
+  
+  state.exercises.forEach(ex => {
+    let maxWeight = 0;
+    let max1RM = 0;
+    let prDate = null;
+
+    state.history.forEach(w => {
+      if (!w.deleted) {
+        const histEx = w.exercises.find(e => e.exerciseId === ex.id);
+        if (histEx) {
+          histEx.sets.forEach(s => {
+            const wt = parseFloat(s.weight) || 0;
+            const rp = parseInt(s.reps) || 0;
+            if (wt > maxWeight) {
+              maxWeight = wt;
+              prDate = new Date(w.endTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+            const est1 = Analytics.calculate1RM(wt, rp);
+            if (est1 > max1RM) max1RM = est1;
+          });
+        }
+      }
+    });
+
+    if (maxWeight > 0) {
+      prs.push({
+        name: ex.name,
+        maxWeight,
+        max1RM: Math.round(max1RM),
+        date: prDate
+      });
+    }
+  });
+
+  if (prs.length === 0) {
+    container.innerHTML = `<div class="empty-state-text" style="font-size: 0.78rem; text-align: left; padding: 0;">No personal records logged yet. Complete workouts to track PRs!</div>`;
+    return;
+  }
+
+  prs.sort((a, b) => b.maxWeight - a.maxWeight);
+
+  container.innerHTML = prs.map(pr => `
+    <div class="settings-pr-card">
+      <div class="settings-pr-card-info">
+        <span class="settings-pr-name">${pr.name}</span>
+        <span class="settings-pr-date">Achieved on ${pr.date}</span>
+      </div>
+      <div class="settings-pr-val-box">
+        <span class="settings-pr-weight">${pr.maxWeight} ${state.settings.unit}</span>
+        <span class="settings-pr-1rm">Est. 1RM: ${pr.max1RM} ${state.settings.unit}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
 
 // ==========================================================================
 // 12. BACKUP & RESTORE DATA (JSON)
