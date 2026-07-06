@@ -302,11 +302,16 @@
 
 
           <!-- Templates Section -->
-          <div class="section-header">
+          <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
             <h2>Templates</h2>
-            <button id="btn-new-template" class="btn-text-icon">
-              <i data-lucide="plus"></i> New Template
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-import-text-template" class="btn-text-icon" style="background: rgba(212, 252, 52, 0.08); border: 1px dashed rgba(212, 252, 52, 0.3); color: #d4fc34;">
+                <i data-lucide="wand-2" style="width: 14px; height: 14px;"></i> Import from Text
+              </button>
+              <button id="btn-new-template" class="btn-text-icon">
+                <i data-lucide="plus"></i> New Template
+              </button>
+            </div>
           </div>
 
           <div id="templates-list" class="templates-grid">
@@ -1501,6 +1506,29 @@
       </div>
       <div class="modal-footer" style="padding-top: 10px;">
         <button id="btn-confirm-recovery-start" class="btn-success btn-full-width">Launch Workout Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: TEXT WORKOUT PARSER -->
+  <div id="modal-workout-parser" class="modal-overlay hidden" style="z-index: 2100;">
+    <div class="modal-content standard border-glow" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 style="font-size: 1.1rem; font-weight: 800; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+          <span>🪄</span> Import Workout from Text
+        </h2>
+        <button class="btn-close-modal" id="btn-close-workout-parser"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="padding-top: 10px;">
+        <p class="modal-description" style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">
+          Paste your workout plan below. We'll automatically identify the exercises, find matches in our 1,300+ movement database, and build a ready-to-use template!
+        </p>
+        <textarea id="input-parser-text" placeholder="PUSH WORKOUT&#10;&#10;1. Incline Dumbbell Press&#10;4 Sets &times; 6-10 Reps&#10;&#10;2. Flat Barbell Bench Press&#10;3 Sets &times; 8-10 Reps" rows="10" style="width: 100%; padding: 12px; font-size: 0.8rem; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-light); border-radius: 10px; color: var(--text-main); font-family: monospace; resize: vertical; margin-bottom: 16px; outline: none; transition: border-color 0.2s;"></textarea>
+        
+        <div style="display: flex; gap: 10px;">
+          <button id="btn-cancel-parser" class="btn-secondary btn-full-width">Cancel</button>
+          <button id="btn-submit-parser" class="btn-success btn-full-width">Parse & Create</button>
+        </div>
       </div>
     </div>
   </div>

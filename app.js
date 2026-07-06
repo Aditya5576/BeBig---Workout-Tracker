@@ -4331,6 +4331,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Set up AI Coach and Recovery modal listeners
   setupAiCoachAndRecoveryListeners();
+  initWorkoutTextParser();
 
   // Clean initialization of Lucide Icons
   if (window.lucide) window.lucide.createIcons();
@@ -6013,5 +6014,166 @@ function setupAiCoachAndRecoveryListeners() {
     });
   }
 }
+
+function initWorkoutTextParser() {
+  const btnOpen = document.getElementById("btn-import-text-template");
+  const modal = document.getElementById("modal-workout-parser");
+  const btnClose = document.getElementById("btn-close-workout-parser");
+  const btnCancel = document.getElementById("btn-cancel-parser");
+  const btnSubmit = document.getElementById("btn-submit-parser");
+  const textInput = document.getElementById("input-parser-text");
+
+  if (!modal) return;
+
+  if (btnOpen) {
+    btnOpen.addEventListener("click", () => {
+      textInput.value = "";
+      modal.classList.remove("hidden");
+    });
+  }
+
+  const closeModal = () => {
+    modal.classList.add("hidden");
+  };
+
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
+
+  if (btnSubmit) {
+    btnSubmit.addEventListener("click", () => {
+      const text = textInput.value.trim();
+      if (!text) {
+        alert("Please paste some workout text first!");
+        return;
+      }
+
+      const template = parseWorkoutText(text);
+      if (!template || template.exercises.length === 0) {
+        alert("Could not identify any exercises. Please check your text format.");
+        return;
+      }
+
+      state.templates.push(template);
+      saveAllState();
+      
+      closeModal();
+      renderStartView();
+
+      if (state.auth && state.auth.token) {
+        syncData(true);
+      }
+
+      showToast("Workout template imported successfully!");
+    });
+  }
+}
+
+function parseWorkoutText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return null;
+
+  let templateName = "Imported Workout";
+  let exercises = [];
+  let currentExercise = null;
+
+  // Check if first line is a title (doesn't start with numbers, doesn't contain sets/reps keywords)
+  if (lines[0] && !/^\d/.test(lines[0]) && !/set/i.test(lines[0]) && !/rep/i.test(lines[0])) {
+    templateName = lines[0].replace(/[:\-#]/g, '').trim();
+    // Capitalize title
+    templateName = templateName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    lines.shift();
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check if the line describes sets and reps
+    const setRepRegex = /(\d+)\s*(?:sets?|x)\s*[\x25\xD7x*-]?\s*(\d+(?:[\x25\xD7x*–-]\d+)?)?\s*(?:reps?|sets?)?/i;
+    const match = line.match(setRepRegex);
+
+    if (match && currentExercise) {
+      const setsCount = parseInt(match[1], 10);
+      const repsStr = match[2] ? match[2].trim() : "";
+      
+      let repsVal = 10;
+      if (repsStr) {
+        const parts = repsStr.split(/[\x25\xD7x*–-]/);
+        if (parts.length > 0) {
+          repsVal = parseInt(parts[parts.length - 1], 10) || 10;
+        }
+      }
+
+      currentExercise.sets = Array.from({ length: setsCount }, () => ({
+        type: "N",
+        weight: "",
+        reps: repsVal
+      }));
+    } else {
+      // It's a new exercise line!
+      // Strip out numbering like "1. ", "2)", "A) ", "- "
+      const cleanName = line.replace(/^\d+[\s.)\-–:]+/, '').replace(/^[*+\-–•]\s+/, '').trim();
+      if (!cleanName || /sets?/i.test(cleanName) || /reps?/i.test(cleanName)) continue;
+
+      // Search database for matching exercise
+      let matchedId = null;
+      const dbMatches = state.exercises.filter(ex => !ex.deleted);
+      
+      // 1. Exact name match
+      let matchEx = dbMatches.find(ex => ex.name.toLowerCase() === cleanName.toLowerCase());
+      
+      // 2. Substring match
+      if (!matchEx) {
+        matchEx = dbMatches.find(ex => ex.name.toLowerCase().includes(cleanName.toLowerCase()) || cleanName.toLowerCase().includes(ex.name.toLowerCase()));
+      }
+
+      // 3. Fuzzy match: common word intersection
+      if (!matchEx) {
+        const cleanWords = cleanName.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        if (cleanWords.length > 0) {
+          matchEx = dbMatches.find(ex => {
+            const nameLower = ex.name.toLowerCase();
+            return cleanWords.every(word => nameLower.includes(word));
+          });
+        }
+      }
+
+      if (matchEx) {
+        matchedId = matchEx.id;
+      } else {
+        // Create custom exercise on-the-fly
+        const customId = `custom-${crypto.randomUUID()}`;
+        const newEx = {
+          id: customId,
+          name: cleanName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' '),
+          muscle: "Other",
+          category: "Other",
+          instructions: "Custom exercise imported from text parser.",
+          updated_at: Date.now(),
+          deleted: 0,
+          dirty: 1
+        };
+        state.exercises.push(newEx);
+        matchedId = customId;
+      }
+
+      currentExercise = {
+        exerciseId: matchedId,
+        sets: [] // Empty if no sets line follows (user requested: if sets are not there keep it empty)
+      };
+      exercises.push(currentExercise);
+    }
+  }
+
+  return {
+    id: "template-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+    name: templateName,
+    notes: "Imported via Workout Parser.",
+    exercises,
+    updated_at: Date.now(),
+    deleted: 0,
+    dirty: 1
+  };
+}
+
 
 
