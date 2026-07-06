@@ -145,7 +145,12 @@ let isTemplateEditorOpening = false;
 
 
 function initStore() {
-  state.exercises = store.get("exercises", DEFAULT_EXERCISES);
+  const storedExercises = store.get("exercises", []);
+  const customExercises = Array.isArray(storedExercises)
+    ? storedExercises.filter(ex => ex.id && String(ex.id).startsWith('custom-'))
+    : [];
+  state.exercises = [...DEFAULT_EXERCISES, ...customExercises];
+
   state.templates = store.get("templates", DEFAULT_TEMPLATES);
   state.history = store.get("history", []);
   state.activeWorkout = store.get("activeWorkout", null);
@@ -211,7 +216,10 @@ function initStore() {
 }
 
 function saveAllState() {
-  store.set("exercises", state.exercises);
+  // Only persist custom exercises to local storage to keep JSON sizes tiny and saves instant
+  const customExercises = state.exercises.filter(ex => ex.id && String(ex.id).startsWith('custom-'));
+  store.set("exercises", customExercises);
+
   store.set("templates", state.templates);
   store.set("history", state.history);
   store.set("activeWorkout", state.activeWorkout);
@@ -223,6 +231,7 @@ function saveAllState() {
     scheduleSyncAfterWrite();
   }
 }
+
 
 // ==========================================================================
 // 3. SOUND SYNTHESIS ENGINE (WEB AUDIO API)
@@ -5753,8 +5762,9 @@ function runSplashLoadingSequence() {
     if (status) status.textContent = current.text;
 
     stepIdx++;
-    setTimeout(nextStep, 500); // 0.5s per step -> 2.0s total splash duration
+    setTimeout(nextStep, 80); // 80ms per step -> super fast splash animation!
   }
+
 
   // Start sequence
   nextStep();
