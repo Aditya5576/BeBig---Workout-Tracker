@@ -1130,7 +1130,9 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
 .set-input-cell {
   display: flex;
   justify-content: center;
+  position: relative; /* Position anchor for floating overload badges */
 }
+
 .set-input-cell input {
   width: 58px; /* Increased from 52px */
   height: 32px; /* Increased from 25px */
@@ -3752,40 +3754,41 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
 
 /* Progressive Overload Suggestion Badges */
 .overload-badge-container {
+  position: absolute;
+  bottom: -11px; /* Floating slightly overlapping the bottom border of input */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 2px;
 }
 
 .overload-badge {
-  background: rgba(212, 252, 52, 0.08);
-  border: 1px solid rgba(212, 252, 52, 0.3);
-  color: #d4fc34;
-  font-size: 0.62rem;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 6px;
+  background: #10b981; /* Solid green for clean progression alert */
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #ffffff;
+  font-size: 0.56rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 2px;
-  letter-spacing: 0.5px;
-  animation: pulse-border 2s infinite ease-in-out;
-  transition: all var(--transition-smooth);
+  gap: 1px;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.35);
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
 }
 
 .overload-badge:hover {
-  background: rgba(212, 252, 52, 0.15);
+  background: #d4fc34;
   border-color: #d4fc34;
-  transform: translateY(-0.5px);
+  color: #0c101b;
+  transform: scale(1.05);
 }
 
-@keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(212, 252, 52, 0.2); }
-  70% { box-shadow: 0 0 0 5px rgba(212, 252, 52, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(212, 252, 52, 0); }
-}
 
 /* AI coach suggestions lists styling */
 .ai-suggested-ex-card {
