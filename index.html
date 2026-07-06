@@ -528,14 +528,18 @@
                 <span class="profile-card-tier">Premium Active Member</span>
               </div>
             </div>
-            <div id="admin-portal-link-container"></div>
-          </div>
-
-          <div class="settings-group">
-            <h3>🏆 Personal Records</h3>
-            <div id="settings-personal-records-list" class="settings-pr-list-container">
-              <div class="empty-state-text" style="font-size: 0.78rem; text-align: left; padding: 0;">No personal records logged yet.</div>
+            
+            <div class="settings-row clickable" id="btn-view-prs" style="margin-top: 10px;">
+              <div class="settings-row-text">
+                <span class="settings-label">🏆 Personal Records (PRs)</span>
+                <span class="settings-subtext">View all-time heaviest lifts & 1RMs</span>
+              </div>
+              <div class="settings-row-action">
+                <i data-lucide="chevron-right" class="settings-row-chevron"></i>
+              </div>
             </div>
+
+            <div id="admin-portal-link-container"></div>
           </div>
 
 
@@ -1528,6 +1532,26 @@
         <div style="display: flex; gap: 10px;">
           <button id="btn-cancel-parser" class="btn-secondary btn-full-width">Cancel</button>
           <button id="btn-submit-parser" class="btn-success btn-full-width">Parse & Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PERSONAL RECORDS (PRs) -->
+  <div id="modal-personal-records" class="modal-overlay hidden" style="z-index: 2100;">
+    <div class="modal-content standard border-glow" style="max-width: 480px; max-height: 80vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2 style="font-size: 1.1rem; font-weight: 800; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+          <span>🏆</span> Personal Records (PRs)
+        </h2>
+        <button class="btn-close-modal" id="btn-close-prs-modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="flex-grow: 1; overflow-y: auto; padding-top: 10px;">
+        <p class="modal-description" style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 14px; line-height: 1.4;">
+          Your all-time heaviest lifts and estimated 1-Rep Maxes (1RMs) across all exercises completed.
+        </p>
+        <div id="settings-personal-records-list" class="settings-pr-list-container" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="empty-state-text" style="font-size: 0.78rem; text-align: left; padding: 0;">No personal records logged yet.</div>
         </div>
       </div>
     </div>

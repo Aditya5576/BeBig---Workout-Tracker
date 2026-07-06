@@ -4329,6 +4329,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- PERSONAL RECORDS (PRs) MODAL BINDINGS ---
+  const btnViewPrs = document.getElementById("btn-view-prs");
+  const modalPrs = document.getElementById("modal-personal-records");
+  const btnClosePrsModal = document.getElementById("btn-close-prs-modal");
+
+  if (btnViewPrs && modalPrs) {
+    btnViewPrs.addEventListener("click", () => {
+      renderSettingsPersonalRecords(); // compile and render PRs inside modal
+      modalPrs.classList.remove("hidden");
+    });
+  }
+
+  if (btnClosePrsModal && modalPrs) {
+    btnClosePrsModal.addEventListener("click", () => {
+      modalPrs.classList.add("hidden");
+    });
+  }
+
   // Set up AI Coach and Recovery modal listeners
   setupAiCoachAndRecoveryListeners();
   initWorkoutTextParser();
