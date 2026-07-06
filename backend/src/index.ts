@@ -5,7 +5,9 @@ type Bindings = {
   DB: D1Database;
   SESSIONS: KVNamespace;
   AI: any;
+  ADMIN_PASSWORD_HASH?: string;
 };
+
 
 type Variables = {
   userId: string;
@@ -14,10 +16,11 @@ type Variables = {
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // Enable CORS for our frontend pages and local development
+const ALLOWED_ORIGINS = ['https://bebigfit.pages.dev', 'http://localhost:8080', 'http://localhost:8787'];
 app.use(
   '/api/*',
   cors({
-    origin: '*', // Allow all origins for flexibility; can restrict to Pages domain later
+    origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]),
     allowHeaders: ['Content-Type', 'Authorization'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['Content-Length'],
@@ -26,15 +29,23 @@ app.use(
   })
 );
 
-// Self-healing database column addition
+// Self-healing database column and index addition
 app.use('/api/*', async (c, next) => {
   try {
     await c.env.DB.prepare("ALTER TABLE settings ADD COLUMN active_workout_json TEXT").run();
   } catch (e) {
     // Column already exists, ignore
   }
+  try {
+    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_exercises_user_id ON exercises(user_id)").run();
+    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id)").run();
+    await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_history_user_id ON history(user_id)").run();
+  } catch (e) {
+    // Indexes already exist, ignore
+  }
   await next();
 });
+
 
 
 // Password Hashing helpers using Web Crypto API
@@ -130,7 +141,8 @@ app.post('/api/auth/signup', async (c) => {
 
     return c.json({ success: true, token, email: normalizedEmail, name: userName });
   } catch (err: any) {
-    return c.json({ error: 'Signup failed: ' + err.message }, 500);
+    console.error("Signup failed:", err);
+    return c.json({ error: 'Signup failed. Please try again later.' }, 500);
   }
 });
 
@@ -146,9 +158,13 @@ app.post('/api/auth/login', async (c) => {
   try {
     // Intercept special admin account
     if (normalizedEmail === 'adityapatil2348@gmail.com') {
-      if (password !== 'Aditya@admin') {
+      const adminHash = c.env.ADMIN_PASSWORD_HASH || 'bebigadminsalt:747094f0d786a452aa5d287eaabaa414b0570897f710169e0f3c857f453ff234';
+      const [salt, hash] = adminHash.split(':');
+      const inputHash = await hashPassword(password, salt);
+      if (inputHash !== hash) {
         return c.json({ error: 'Invalid email or password' }, 401);
       }
+
 
       // Check if admin exists in database, seed if missing
       let user = await c.env.DB.prepare(
@@ -212,7 +228,8 @@ app.post('/api/auth/login', async (c) => {
 
     return c.json({ success: true, token, email: normalizedEmail, name: user.name || '', isAdmin: false });
   } catch (err: any) {
-    return c.json({ error: 'Login failed: ' + err.message }, 500);
+    console.error("Login failed:", err);
+    return c.json({ error: 'Login failed. Please try again later.' }, 500);
   }
 });
 
@@ -303,7 +320,8 @@ app.post('/api/sync/heartbeat', async (c) => {
     
     return c.json({ success: true });
   } catch (err: any) {
-    return c.json({ error: 'Heartbeat failed: ' + err.message }, 500);
+    console.error("Heartbeat failed:", err);
+    return c.json({ error: 'Heartbeat failed. Please try again later.' }, 500);
   }
 });
 
@@ -391,7 +409,8 @@ app.get('/api/sync/pull', async (c) => {
     });
 
   } catch (err: any) {
-    return c.json({ error: 'Sync pull failed: ' + err.message }, 500);
+    console.error("Sync pull failed:", err);
+    return c.json({ error: 'Sync pull failed. Please try again later.' }, 500);
   }
 });
 
@@ -537,7 +556,8 @@ app.post('/api/sync/push', async (c) => {
 
     return c.json({ success: true, synced_at: now });
   } catch (err: any) {
-    return c.json({ error: 'Sync push failed: ' + err.message }, 500);
+    console.error("Sync push failed:", err);
+    return c.json({ error: 'Sync push failed. Please try again later.' }, 500);
   }
 });
 

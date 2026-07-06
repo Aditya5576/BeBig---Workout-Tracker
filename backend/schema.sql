@@ -52,3 +52,8 @@ CREATE TABLE IF NOT EXISTS settings (
   FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS idx_exercises_user_id ON exercises(user_id);
+CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id);
+CREATE INDEX IF NOT EXISTS idx_history_user_id ON history(user_id);
+
+

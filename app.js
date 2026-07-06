@@ -2172,7 +2172,7 @@ function renderStartView() {
 
     const exercisesHTML = `
       <p class="template-preview-text" style="font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 12px 0; line-height: 1.4; font-family: var(--font-body); font-weight: 500;">
-        ${previewText}
+        ${escapeHTML(previewText)}
       </p>
     `;
 
@@ -2183,7 +2183,7 @@ function renderStartView() {
       const badges = targetedMuscles.map(muscle => {
         const muscleClean = muscle.toLowerCase().replace(/\s+/g, '-');
         const badgeClass = `primary-muscle-badge ${muscleClean}`;
-        return `<span class="${badgeClass}">${muscle}</span>`;
+        return `<span class="${badgeClass}">${escapeHTML(muscle)}</span>`;
       });
       musclesHTML = `<div class="template-card-muscle-badges">${badges.join(" ")}</div>`;
     }
@@ -2191,7 +2191,7 @@ function renderStartView() {
     card.innerHTML = `
       <div class="template-card-header">
         <div>
-          <span class="template-card-title">${template.name}</span>
+          <span class="template-card-title">${escapeHTML(template.name)}</span>
           <span class="template-card-subtitle">${totalExercises} exercises • ${totalSets} sets</span>
         </div>
         <div class="template-card-actions">
@@ -2204,9 +2204,10 @@ function renderStartView() {
         </div>
       </div>
       ${exercisesHTML}
-      ${template.notes ? `<div class="template-card-notes">${template.notes}</div>` : ''}
+      ${template.notes ? `<div class="template-card-notes">${escapeHTML(template.notes)}</div>` : ''}
       ${musclesHTML}
     `;
+
 
     // Make the card clickable to start a workout session
     card.addEventListener("click", (e) => {
@@ -2322,7 +2323,7 @@ function renderHistoryView(searchQuery = "") {
     });
 
     const muscleBadge = primaryMuscle 
-      ? `<span class="badge primary-muscle-badge ${primaryMuscle.toLowerCase()}">${primaryMuscle}</span>` 
+      ? `<span class="badge primary-muscle-badge ${primaryMuscle.toLowerCase()}">${escapeHTML(primaryMuscle)}</span>` 
       : '';
 
     const card = document.createElement("div");
@@ -2339,7 +2340,7 @@ function renderHistoryView(searchQuery = "") {
       exerciseLinesHTML += `
         <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px;">
           ${prBadge}
-          <strong class="history-exercise-name">${name}</strong> — ${ex.sets.length} sets (${setsStr})
+          <strong class="history-exercise-name">${escapeHTML(name)}</strong> — ${ex.sets.length} sets (${escapeHTML(setsStr)})
         </div>
       `;
     });
@@ -2349,7 +2350,7 @@ function renderHistoryView(searchQuery = "") {
       <div class="history-card-header">
         <div class="history-card-title-box">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <h3>${w.name}</h3>
+            <h3>${escapeHTML(w.name)}</h3>
             ${muscleBadge}
           </div>
           <span class="history-card-date">${dateStr}</span>
@@ -2378,6 +2379,7 @@ function renderHistoryView(searchQuery = "") {
         ${exerciseLinesHTML}
       </div>
     `;
+
 
     container.appendChild(card);
   });
@@ -2453,18 +2455,19 @@ function renderExercisesView(searchQuery = "") {
     const item = document.createElement("div");
     item.className = "exercise-item";
     
-    const categoryBadge = `<span class="exercise-cat-tag ${ex.category.toLowerCase()}">${ex.category}</span>`;
+    const categoryBadge = `<span class="exercise-cat-tag ${ex.category.toLowerCase()}">${escapeHTML(ex.category)}</span>`;
     
     item.innerHTML = `
       <div class="exercise-item-content">
         <div style="display:flex; align-items:center; gap:8px;">
-          <span class="exercise-item-name">${ex.name}</span>
+          <span class="exercise-item-name">${escapeHTML(ex.name)}</span>
           ${categoryBadge}
         </div>
-        <span class="exercise-item-muscle">${ex.muscle}</span>
+        <span class="exercise-item-muscle">${escapeHTML(ex.muscle)}</span>
       </div>
       <i data-lucide="chevron-right" style="color: var(--text-dark); width: 18px; height: 18px;"></i>
     `;
+
 
     item.addEventListener("click", () => {
       openExerciseDetails(ex.id);
@@ -2591,13 +2594,14 @@ function renderSelectorList(searchQuery = "") {
     
     item.innerHTML = `
       <div class="exercise-item-content">
-        <span class="exercise-item-name">${ex.name}</span>
-        <span class="exercise-item-muscle">${ex.muscle} • ${ex.category}</span>
+        <span class="exercise-item-name">${escapeHTML(ex.name)}</span>
+        <span class="exercise-item-muscle">${escapeHTML(ex.muscle)} • ${escapeHTML(ex.category)}</span>
       </div>
       <div class="exercise-item-checkbox">
         <i data-lucide="check"></i>
       </div>
     `;
+
 
     item.addEventListener("click", () => {
       if (selectorCurrentSelection.includes(ex.id)) {
@@ -4363,7 +4367,18 @@ const API_BASE_URL = window.location.hostname === "localhost" || window.location
   ? "http://localhost:8787"
   : "https://bebig-backend.adityapatil2348.workers.dev";
 
+function escapeHTML(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 let isSyncing = false;
+
 let _syncWriteTimer = null; // debounce timer for post-write syncs
 let _lastPushedActiveWorkoutStr = null; // tracker for active workout session pushes
 

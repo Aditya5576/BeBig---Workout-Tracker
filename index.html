@@ -331,7 +331,7 @@
           <h1 class="view-title">Workout History</h1>
           <div id="history-search-bar" class="search-container">
             <i data-lucide="search" class="search-icon"></i>
-            <input type="text" id="input-history-search" placeholder="Search past workouts or exercises...">
+            <input type="text" id="input-history-search" placeholder="Search past workouts or exercises..." aria-label="Search past workouts or exercises">
           </div>
           <div id="history-list" class="history-container">
             <!-- Dynamic history list items -->
@@ -345,12 +345,13 @@
           <div class="exercises-controls">
             <div class="search-container flex-grow">
               <i data-lucide="search" class="search-icon"></i>
-              <input type="text" id="input-exercise-search" placeholder="Search exercises...">
+              <input type="text" id="input-exercise-search" placeholder="Search exercises..." aria-label="Search exercises">
             </div>
-            <button id="btn-create-exercise" class="btn-icon-only" title="Create Custom Exercise">
+            <button id="btn-create-exercise" class="btn-icon-only" title="Create Custom Exercise" aria-label="Create Custom Exercise">
               <i data-lucide="plus"></i>
             </button>
           </div>
+
 
           <div class="category-filters" id="muscle-filters-container">
             <button class="filter-chip active" data-muscle="all">All</button>
@@ -913,7 +914,7 @@
       </div>
       <div class="modal-search-bar search-container">
         <i data-lucide="search" class="search-icon"></i>
-        <input type="text" id="input-modal-search" placeholder="Search exercises...">
+        <input type="text" id="input-modal-search" placeholder="Search exercises..." aria-label="Search exercises in selection modal">
       </div>
       
       <div class="category-filters scrollable" id="modal-muscle-filters">
