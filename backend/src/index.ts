@@ -92,9 +92,30 @@ async function addActivityLog(sessions: KVNamespace, email: string, message: str
   await sessions.put('activity:logs', JSON.stringify(logs));
 }
 
+// Simple KV-based rate-limiting for Auth endpoints (max 15 requests/min per IP)
+app.use('/api/auth/*', async (c, next) => {
+  const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Real-IP') || '127.0.0.1';
+  const limitKey = `rate-limit:${ip}`;
+  
+  try {
+    const currentCountStr = await c.env.SESSIONS.get(limitKey);
+    const count = currentCountStr ? parseInt(currentCountStr, 10) : 0;
+    
+    if (count >= 15) {
+      return c.json({ error: 'Too many login or signup attempts. Please try again in a minute.' }, 429);
+    }
+    
+    await c.env.SESSIONS.put(limitKey, (count + 1).toString(), { expirationTtl: 60 });
+  } catch (e) {
+    console.error("Rate limiting KV error:", e);
+  }
+  await next();
+});
+
 // ==========================================================================
 // AUTHENTICATION ROUTES
 // ==========================================================================
+
 
 app.post('/api/auth/signup', async (c) => {
   const { email, password, name } = await c.req.json();
