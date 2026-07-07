@@ -2152,23 +2152,29 @@ function renderStartView() {
     card.className = "template-card";
     
     // Calculate template stats
-    const totalExercises = template.exercises.length;
-    const totalSets = template.exercises.reduce((sum, ex) => sum + (ex.sets ? ex.sets.length : 0), 0);
+    const exercisesList = Array.isArray(template.exercises) ? template.exercises : [];
+    const totalExercises = exercisesList.length;
+    const totalSets = exercisesList.reduce((sum, ex) => sum + (ex && ex.sets ? ex.sets.length : 0), 0);
 
     // Extract unique muscles
     const musclesMap = {};
-    template.exercises.forEach(ex => {
-      const det = state.exercises.find(e => e.id === ex.exerciseId);
-      if (det && det.muscle) {
-        musclesMap[det.muscle] = true;
+    exercisesList.forEach(ex => {
+      if (ex && ex.exerciseId) {
+        const det = state.exercises.find(e => e.id === ex.exerciseId);
+        if (det && det.muscle) {
+          musclesMap[det.muscle] = true;
+        }
       }
     });
     const targetedMuscles = Object.keys(musclesMap);
 
     // Build brief list of exercises in template as preview text (takes much less vertical space)
-    const exerciseNames = template.exercises.map(ex => {
-      const det = state.exercises.find(e => e.id === ex.exerciseId);
-      return det ? det.name : null;
+    const exerciseNames = exercisesList.map(ex => {
+      if (ex && ex.exerciseId) {
+        const det = state.exercises.find(e => e.id === ex.exerciseId);
+        return det ? det.name : null;
+      }
+      return null;
     }).filter(Boolean);
     
     let previewText = "No exercises added yet.";
@@ -3466,29 +3472,62 @@ function resetAllAppData() {
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Start splash screen first so the loader is visible immediately
+  try {
+    runSplashLoadingSequence();
+  } catch (splashErr) {
+    console.error("Error starting splash screen:", splashErr);
+    // Dismiss splash overlay immediately as a fallback if it failed to run
+    const splash = document.getElementById("app-splash-screen");
+    if (splash) {
+      splash.classList.add("fade-out");
+      splash.classList.add("hidden");
+    }
+  }
+
   // Disable pinch-to-zoom gesture scaling on iOS Safari
   document.addEventListener("gesturestart", (e) => {
     e.preventDefault();
   });
 
-  // Initialize state
-  initStore();
-  setupMuscleFilters();
-  initCustomExerciseModal();
-  
-  // Asynchronously load the 1300+ ExerciseDB database
-  loadExercisesDatabase();
-  
-  // Render current view
-  renderHomeView();
-
-  // Auto-sync remote updates on startup
-  if (state.auth && state.auth.token) {
-    syncData(true);
+  // Run all initialization blocks inside a safe try-catch
+  try {
+    initStore();
+  } catch (storeErr) {
+    console.error("Error in initStore:", storeErr);
   }
 
-  // Run the premium splash screen sequence
-  runSplashLoadingSequence();
+  try {
+    setupMuscleFilters();
+    initCustomExerciseModal();
+  } catch (initErr) {
+    console.error("Error in view filters initialization:", initErr);
+  }
+  
+  // Asynchronously load the 1300+ ExerciseDB database
+  try {
+    loadExercisesDatabase();
+  } catch (dbErr) {
+    console.error("Error initiating exercise database load:", dbErr);
+  }
+  
+  // Render current view
+  try {
+    renderHomeView();
+  } catch (renderErr) {
+    console.error("Error rendering home view on startup:", renderErr);
+  }
+
+  // Auto-sync remote updates on startup asynchronously to prevent blocking the main load thread
+  if (state.auth && state.auth.token) {
+    setTimeout(() => {
+      try {
+        syncData(true);
+      } catch (syncErr) {
+        console.error("Startup auto-sync failed:", syncErr);
+      }
+    }, 100);
+  }
   // --- HOME VIEW BINDINGS ---
   const homeBtnStart = document.getElementById("home-btn-start-workout");
   if (homeBtnStart) {
