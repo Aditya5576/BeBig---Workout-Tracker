@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.6";
+const APP_CURRENT_VERSION = "V1.7";
 
 function debounce(func, wait) {
   let timeout;
@@ -292,6 +292,53 @@ function applyTheme() {
   }
   if (typeof currentMuscleChartInstance !== "undefined" && currentMuscleChartInstance) {
     Analytics.renderMuscleSplitChart();
+  }
+}
+
+// --- SCHEDULED WORKOUT NOTIFICATION REMINDERS ---
+function checkScheduledWorkoutReminders() {
+  if (!state.settings || !state.settings.notificationsEnabled || Notification.permission !== "granted") {
+    return;
+  }
+
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const todayIndex = (new Date().getDay() + 6) % 7; // Mon is 0
+  const todayName = daysOfWeek[todayIndex];
+
+  const templateId = state.schedule ? state.schedule[todayName] : null;
+  if (!templateId) return;
+
+  const template = state.templates.find(t => t.id === templateId && !t.deleted);
+  if (!template) return;
+
+  const todayKey = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  if (state.settings.lastScheduledNotificationDate !== todayKey) {
+    try {
+      new Notification("Time to Train! 🏋️‍♂️", {
+        body: `Your scheduled workout for today: ${template.name}. Let's get big!`,
+        tag: "scheduled-workout-reminder",
+        renotify: true
+      });
+      state.settings.lastScheduledNotificationDate = todayKey;
+      state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
+      saveAllState();
+    } catch (e) {
+      console.warn("Could not fire scheduled workout reminder notification", e);
+    }
+  }
+}
+
+function triggerImmediateScheduledNotification(tmplName, day) {
+  if (state.settings && state.settings.notificationsEnabled && Notification.permission === "granted") {
+    try {
+      new Notification("Workout Scheduled! 📅", {
+        body: `${tmplName} has been scheduled for ${day}. We will remind you to train!`,
+        tag: "schedule-change"
+      });
+    } catch (e) {
+      console.warn("Could not fire schedule change notification", e);
+    }
   }
 }
 
@@ -2161,6 +2208,9 @@ function openSchedulePicker(day) {
       saveAllState();
       renderScheduleView();
       modal.classList.add("hidden");
+      
+      // Send scheduled workout notification if enabled
+      triggerImmediateScheduledNotification(tmpl.name, scheduleSelectedDay);
     });
 
     listContainer.appendChild(button);
@@ -3608,6 +3658,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 100);
   }
+
+  // Check for any scheduled workout reminders on startup
+  setTimeout(() => {
+    try {
+      checkScheduledWorkoutReminders();
+    } catch (reminderErr) {
+      console.error("Error checking scheduled workout reminders:", reminderErr);
+    }
+  }, 1000);
   // --- HOME VIEW BINDINGS ---
   const homeBtnStart = document.getElementById("home-btn-start-workout");
   if (homeBtnStart) {
