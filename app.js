@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.2";
+const APP_CURRENT_VERSION = "V1.3";
 
 function debounce(func, wait) {
   let timeout;
@@ -6319,6 +6319,12 @@ function parseWorkoutText(text) {
   let exercises = [];
   let currentExercise = null;
 
+  const MUSCLE_HEADERS = [
+    "chest", "back", "legs", "shoulders", "arms", "triceps", "biceps", "core", 
+    "push", "pull", "legs", "cardio", "warmup", "cooldown", "abs", "quads", 
+    "hams", "calves", "glutes", "forearms"
+  ];
+
   // Check if first line is a title (doesn't start with numbers, doesn't contain sets/reps keywords)
   if (lines[0] && !/^\d/.test(lines[0]) && !/set/i.test(lines[0]) && !/rep/i.test(lines[0])) {
     templateName = lines[0].replace(/[:\-#]/g, '').trim();
@@ -6330,8 +6336,8 @@ function parseWorkoutText(text) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Check if the line describes sets and reps
-    const setRepRegex = /(\d+)\s*(?:sets?|x)\s*[\x25\xD7x*-]?\s*(\d+(?:[\x25\xD7x*–-]\d+)?)?\s*(?:reps?|sets?)?/i;
+    // Check if the line describes sets and reps (support multiplication sign \xD7, \u00d7, and ×)
+    const setRepRegex = /(\d+)\s*(?:sets?|x|[\xD7\u00d7×])\s*[\x25\xD7x*-]?\s*(\d+(?:[\x25\xD7x*–-]\d+)?)?/i;
     const match = line.match(setRepRegex);
 
     if (match && currentExercise) {
@@ -6355,7 +6361,18 @@ function parseWorkoutText(text) {
       // It's a new exercise line!
       // Strip out numbering like "1. ", "2)", "A) ", "- "
       const cleanName = line.replace(/^\d+[\s.)\-–:]+/, '').replace(/^[*+\-–•]\s+/, '').trim();
-      if (!cleanName || /sets?/i.test(cleanName) || /reps?/i.test(cleanName)) continue;
+      
+      // Skip metadata, instructions, rest notes, tempo notes, muscle group headers, or empty symbol dividers
+      const lowerClean = cleanName.toLowerCase();
+      if (!cleanName || 
+          /sets?/i.test(cleanName) || 
+          /reps?/i.test(cleanName) || 
+          /^(rest|tempo|note|focus|warmup|coaching|intensity|instructions?):/i.test(cleanName) ||
+          /^(rest|tempo|warmup)\b/i.test(cleanName) ||
+          MUSCLE_HEADERS.includes(lowerClean) ||
+          !/[a-zA-Z]/.test(cleanName)) {
+        continue;
+      }
 
       // Search database for matching exercise
       let matchedId = null;
