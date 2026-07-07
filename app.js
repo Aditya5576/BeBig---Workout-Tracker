@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "202607071320";
+const APP_CURRENT_VERSION = "V1.1";
 
 function debounce(func, wait) {
   let timeout;
@@ -4448,6 +4448,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Set up AI Coach and Recovery modal listeners
   setupAiCoachAndRecoveryListeners();
   initWorkoutTextParser();
+
+  // Auto-display version in UI
+  document.querySelectorAll(".app-version-display").forEach(el => {
+    el.textContent = APP_CURRENT_VERSION;
+  });
 
   // Clean initialization of Lucide Icons
   if (window.lucide) window.lucide.createIcons();
