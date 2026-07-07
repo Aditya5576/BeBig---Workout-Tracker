@@ -3,6 +3,27 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
+// --- GLOBAL ERROR BOUNDARY (Self-Healing Safeguard) ---
+window.addEventListener("error", (event) => {
+  console.error("Unhandled global error:", event.error);
+  // Auto-dismiss overlays to prevent screen freeze
+  const splash = document.getElementById("app-splash-screen");
+  if (splash) {
+    splash.classList.add("fade-out");
+    splash.classList.add("hidden");
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled promise rejection:", event.reason);
+  // Auto-dismiss overlays
+  const splash = document.getElementById("app-splash-screen");
+  if (splash) {
+    splash.classList.add("fade-out");
+    splash.classList.add("hidden");
+  }
+});
+
 // ==========================================================================
 // 1. INITIAL SEED DATA
 // ==========================================================================
