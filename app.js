@@ -3,6 +3,8 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
+const APP_CURRENT_VERSION = "202607071320";
+
 // --- GLOBAL ERROR BOUNDARY (Self-Healing Safeguard) ---
 window.addEventListener("error", (event) => {
   console.error("Unhandled global error:", event.error);
@@ -4419,6 +4421,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- RELEASE NOTES ("WHAT'S NEW") MODAL BINDINGS ---
+  const modalReleaseNotes = document.getElementById("modal-release-notes");
+  const btnCloseReleaseNotes = document.getElementById("btn-close-release-notes");
+  const btnCloseReleaseNotesOk = document.getElementById("btn-close-release-notes-ok");
+
+  const closeReleaseNotes = () => {
+    if (modalReleaseNotes) modalReleaseNotes.classList.add("hidden");
+  };
+
+  if (btnCloseReleaseNotes) btnCloseReleaseNotes.addEventListener("click", closeReleaseNotes);
+  if (btnCloseReleaseNotesOk) btnCloseReleaseNotesOk.addEventListener("click", closeReleaseNotes);
+
   // Set up AI Coach and Recovery modal listeners
   setupAiCoachAndRecoveryListeners();
   initWorkoutTextParser();
@@ -4466,6 +4480,27 @@ async function loadExercisesDatabase() {
 const API_BASE_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
   ? "http://localhost:8787"
   : "https://bebig-backend.adityapatil2348.workers.dev";
+
+async function apiFetch(path, options = {}) {
+  const headers = options.headers || {};
+  if (state.auth && state.auth.token) {
+    headers["Authorization"] = `Bearer ${state.auth.token}`;
+  }
+  if (options.body && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed with status ${res.status}`);
+  }
+  return data;
+}
 
 function escapeHTML(str) {
   if (!str) return "";
@@ -5862,6 +5897,16 @@ function runSplashLoadingSequence() {
         // After splash screen has faded out, check if user is not authenticated and prompt
         setTimeout(() => {
           splash.classList.add("hidden");
+
+          // Check for version update release notes first!
+          const lastSeenVersion = localStorage.getItem("bebig_app_version");
+          if (lastSeenVersion !== APP_CURRENT_VERSION) {
+            const releaseNotesModal = document.getElementById("modal-release-notes");
+            if (releaseNotesModal) {
+              releaseNotesModal.classList.remove("hidden");
+              localStorage.setItem("bebig_app_version", APP_CURRENT_VERSION);
+            }
+          }
           
           if ((!state.auth || !state.auth.token) && localStorage.getItem("bebig_guest_mode") !== "true") {
             const authModal = document.getElementById("modal-cloud-auth");

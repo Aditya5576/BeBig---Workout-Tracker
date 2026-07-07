@@ -259,10 +259,9 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
   overflow-y: auto;
   opacity: 0;
   pointer-events: none;
-  transform: scale(0.99) translateY(4px);
-  transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1), transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.15s ease-out;
   scrollbar-width: none; /* Hide default firefox scrollbars */
-  will-change: transform, opacity;
+  will-change: opacity;
 }
 .app-view::-webkit-scrollbar {
   display: none;
@@ -271,7 +270,6 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
 .app-view.active {
   opacity: 1;
   pointer-events: auto;
-  transform: scale(1) translateY(0);
   z-index: 5;
 }
 
