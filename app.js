@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.1";
+const APP_CURRENT_VERSION = "V1.2";
 
 function debounce(func, wait) {
   let timeout;
@@ -267,6 +267,33 @@ function saveAllState() {
   }
 }
 
+function applyTheme() {
+  const currentTheme = (state.settings && state.settings.theme) || "dark";
+  if (currentTheme === "light") {
+    document.body.classList.add("theme-light");
+    
+    // Toggle active classes on the toggle buttons
+    const btnDark = document.getElementById("btn-theme-dark");
+    const btnLight = document.getElementById("btn-theme-light");
+    if (btnDark) btnDark.classList.remove("active");
+    if (btnLight) btnLight.classList.add("active");
+  } else {
+    document.body.classList.remove("theme-light");
+    
+    const btnDark = document.getElementById("btn-theme-dark");
+    const btnLight = document.getElementById("btn-theme-light");
+    if (btnDark) btnDark.classList.add("active");
+    if (btnLight) btnLight.classList.remove("active");
+  }
+  
+  // Re-render charts so their text/grid lines align perfectly with the background theme!
+  if (typeof currentChartInstance !== "undefined" && currentChartInstance) {
+    Analytics.renderExerciseHistoryChart(document.getElementById("select-chart-exercise")?.value || "");
+  }
+  if (typeof currentMuscleChartInstance !== "undefined" && currentMuscleChartInstance) {
+    Analytics.renderMuscleSplitChart();
+  }
+}
 
 // ==========================================================================
 // 3. SOUND SYNTHESIS ENGINE (WEB AUDIO API)
@@ -685,7 +712,7 @@ const Analytics = {
           legend: {
             position: "right",
             labels: {
-              color: "#94a3b8",
+              color: document.body.classList.contains("theme-light") ? "#475569" : "#94a3b8",
               font: {
                 family: "Inter",
                 size: 11
@@ -912,7 +939,7 @@ const Analytics = {
         plugins: {
           legend: {
             display: true,
-            labels: { color: '#9ca3af', font: { family: 'Inter', size: 10 } },
+            labels: { color: document.body.classList.contains("theme-light") ? "#475569" : "#9ca3af", font: { family: 'Inter', size: 10 } },
             position: 'top'
           },
           tooltip: {
@@ -922,13 +949,13 @@ const Analytics = {
         },
         scales: {
           x: {
-            grid: { color: 'rgba(255,255,255,0.03)' },
-            ticks: { color: '#9ca3af', font: { family: 'Inter', size: 10 } }
+            grid: { color: document.body.classList.contains("theme-light") ? "rgba(15,23,42,0.05)" : "rgba(255,255,255,0.03)" },
+            ticks: { color: document.body.classList.contains("theme-light") ? "#475569" : "#9ca3af", font: { family: 'Inter', size: 10 } }
           },
           y1: {
             type: 'linear',
             position: 'left',
-            grid: { color: 'rgba(255,255,255,0.05)' },
+            grid: { color: document.body.classList.contains("theme-light") ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.05)" },
             ticks: { color: '#3b82f6', font: { family: 'Outfit', size: 10 } },
             title: { display: true, text: '1RM', color: '#3b82f6', font: { family: 'Inter', size: 9 } }
           },
@@ -3312,6 +3339,7 @@ function switchView(viewName) {
 }
 
 function loadSettingsView() {
+  applyTheme();
   // Update unit selectors
   const isLbs = state.settings.unit === "lbs";
   document.getElementById("btn-unit-lbs").classList.toggle("active", isLbs);
@@ -3528,6 +3556,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Run all initialization blocks inside a safe try-catch
   try {
     initStore();
+    applyTheme();
   } catch (storeErr) {
     console.error("Error in initStore:", storeErr);
   }
@@ -3830,6 +3859,35 @@ document.addEventListener("DOMContentLoaded", () => {
       Analytics.calculateAllStats();
 
       // Instant cloud sync
+      if (state.auth && state.auth.token) {
+        syncData(true);
+      }
+    });
+  }
+
+  const btnThemeDark = document.getElementById("btn-theme-dark");
+  const btnThemeLight = document.getElementById("btn-theme-light");
+
+  if (btnThemeDark) {
+    btnThemeDark.addEventListener("click", () => {
+      state.settings.theme = "dark";
+      state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
+      saveAllState();
+      applyTheme();
+      if (state.auth && state.auth.token) {
+        syncData(true);
+      }
+    });
+  }
+
+  if (btnThemeLight) {
+    btnThemeLight.addEventListener("click", () => {
+      state.settings.theme = "light";
+      state.settings.updated_at = Date.now();
+      state.settings.dirty = 1;
+      saveAllState();
+      applyTheme();
       if (state.auth && state.auth.token) {
         syncData(true);
       }
@@ -4622,8 +4680,9 @@ async function syncData(isSilent = false) {
 
 
     // 3. Pull newer remote state updates
-    const pullRes = await fetch(`${API_BASE_URL}/api/sync/pull?last_pulled_at=${lastSync}`, {
+    const pullRes = await fetch(`${API_BASE_URL}/api/sync/pull?last_pulled_at=${lastSync}&_nocache=${Date.now()}`, {
       method: "GET",
+      cache: "no-store",
       headers: {
         "Authorization": `Bearer ${state.auth.token}`
       }

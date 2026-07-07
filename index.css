@@ -41,6 +41,41 @@
   --glass-blur: blur(20px);
 }
 
+/* ── LIGHT THEME VARIABLES OVERRIDE ───────────────────────────────────────── */
+body.theme-light {
+  --bg-body: #f4f6fa;            /* Soft silver-slate */
+  --bg-app: #ffffff;             /* Pure white container */
+  --bg-card: #ffffff;            /* White card background */
+  --bg-card-hover: #f1f5f9;      /* Slate 100 card hover */
+  --bg-input: #f8fafc;           /* Slate 50 input background */
+  --bg-input-focus: #f1f5f9;     /* Slate 100 focus input */
+  
+  --color-primary: #10b981;      /* Elegant Emerald */
+  --color-primary-rgb: 16, 185, 129;
+  --color-success: #10b981;
+  --color-success-rgb: 16, 185, 129;
+  --color-warning: #f59e0b;
+  --color-danger: #f43f5e;
+  
+  /* Premium Light Gradients */
+  --grad-primary: linear-gradient(135deg, #10b981 0%, #059669 100%);  /* Emerald to Dark Emerald */
+  --grad-accent: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);   /* Blue to Dark Blue */
+  --grad-danger: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);   /* Red to Dark Red */
+  --grad-card: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);     /* White to slate-50 gradient */
+  --grad-body: radial-gradient(circle at top left, #eef2f6 0%, #f4f6fa 100%); /* Elegant silver radial gradient */
+
+  --text-main: #0f172a;          /* Slate 900 */
+  --text-muted: #475569;         /* Slate 600 */
+  --text-dark: #64748b;          /* Slate 500 */
+  
+  --border-light: rgba(15, 23, 42, 0.08); /* Soft slate borders */
+  --border-focus: rgba(16, 185, 129, 0.5);
+  
+  --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  --shadow-glow: 0 0 25px rgba(16, 185, 129, 0.08);
+  --glass-blur: blur(25px);
+}
+
 /* ==========================================================================
    RESET & LAYOUT SETUP
    ========================================================================== */
