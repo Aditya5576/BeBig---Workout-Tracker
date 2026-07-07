@@ -4099,6 +4099,18 @@ document.addEventListener("DOMContentLoaded", () => {
           renderExercisesView();
           loadSettingsView();
           Analytics.calculateAllStats();
+
+          // Show login modal by default on logout
+          const authModal = document.getElementById("modal-cloud-auth");
+          if (authModal) {
+            authModal.classList.remove("hidden");
+            document.getElementById("auth-error-msg").classList.add("hidden");
+            document.getElementById("input-auth-email").value = "";
+            document.getElementById("input-auth-password").value = "";
+            const nameInput = document.getElementById("input-auth-name");
+            if (nameInput) nameInput.value = "";
+            switchAuthTab("login");
+          }
         }
       });
     });
@@ -5726,12 +5738,44 @@ async function submitGlobalBroadcast() {
 
 function handleBannedUserLogout(msg) {
   const alertMsg = msg || "🚫 Access Blocked: Your account has been banned/disabled by the administrator.";
-  alert(alertMsg);
+  
+  // Clear credentials
   state.auth = { email: null, token: null, lastSyncTime: 0, isAdmin: false };
   localStorage.removeItem("bebig_guest_mode");
+  
+  // Reset local cache to clean defaults
+  state.exercises = [...DEFAULT_EXERCISES];
+  state.templates = [...DEFAULT_TEMPLATES];
+  state.history = [];
+  state.settings = { unit: "lbs", defaultRest: 90, notificationsEnabled: false, updated_at: 0 };
+  
   saveAllState();
   updateCloudUI();
-  switchView("settings");
+  
+  // Re-render all views to empty defaults
+  renderHomeView();
+  renderStartView();
+  renderScheduleView();
+  renderHistoryView();
+  renderExercisesView();
+  loadSettingsView();
+  Analytics.calculateAllStats();
+
+  // Show login modal with the session expired / blocked warning
+  const authModal = document.getElementById("modal-cloud-auth");
+  if (authModal) {
+    authModal.classList.remove("hidden");
+    const errorMsgEl = document.getElementById("auth-error-msg");
+    if (errorMsgEl) {
+      errorMsgEl.textContent = alertMsg;
+      errorMsgEl.classList.remove("hidden");
+    }
+    document.getElementById("input-auth-email").value = "";
+    document.getElementById("input-auth-password").value = "";
+    const nameInput = document.getElementById("input-auth-name");
+    if (nameInput) nameInput.value = "";
+    switchAuthTab("login");
+  }
 }
 
 function runSplashLoadingSequence() {
