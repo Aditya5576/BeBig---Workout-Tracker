@@ -5,6 +5,18 @@
 
 const APP_CURRENT_VERSION = "202607071320";
 
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
 // --- GLOBAL ERROR BOUNDARY (Self-Healing Safeguard) ---
 window.addEventListener("error", (event) => {
   console.error("Unhandled global error:", event.error);
@@ -3730,17 +3742,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- HISTORY VIEW BINDINGS ---
   const searchHistoryInput = document.getElementById("input-history-search");
   if (searchHistoryInput) {
-    searchHistoryInput.addEventListener("input", (e) => {
+    searchHistoryInput.addEventListener("input", debounce((e) => {
       renderHistoryView(e.target.value);
-    });
+    }, 180));
   }
 
   // --- EXERCISES VIEW BINDINGS ---
   const searchExerciseInput = document.getElementById("input-exercise-search");
   if (searchExerciseInput) {
-    searchExerciseInput.addEventListener("input", (e) => {
+    searchExerciseInput.addEventListener("input", debounce((e) => {
       renderExercisesView(e.target.value);
-    });
+    }, 180));
   }
 
   const btnCreateEx = document.getElementById("btn-create-exercise");
@@ -3967,9 +3979,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Exercise selector search & confirm
   const modalSearch = document.getElementById("input-modal-search");
   if (modalSearch) {
-    modalSearch.addEventListener("input", (e) => {
+    modalSearch.addEventListener("input", debounce((e) => {
       renderSelectorList(e.target.value);
-    });
+    }, 180));
   }
 
   const btnConfirmSelected = document.getElementById("btn-confirm-exercises");
