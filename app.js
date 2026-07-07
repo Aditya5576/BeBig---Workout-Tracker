@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.3";
+const APP_CURRENT_VERSION = "V1.4";
 
 function debounce(func, wait) {
   let timeout;
@@ -4502,6 +4502,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnCloseReleaseNotes) btnCloseReleaseNotes.addEventListener("click", closeReleaseNotes);
   if (btnCloseReleaseNotesOk) btnCloseReleaseNotesOk.addEventListener("click", closeReleaseNotes);
+
+  // --- MANUAL REFRESH BUTTON BINDING ---
+  const btnManualRefresh = document.getElementById("btn-manual-refresh");
+  if (btnManualRefresh) {
+    btnManualRefresh.addEventListener("click", () => {
+      const icon = btnManualRefresh.querySelector("i");
+      if (icon) {
+        icon.style.transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
+        icon.style.transform = "rotate(360deg)";
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 350);
+    });
+  }
 
   // Set up AI Coach and Recovery modal listeners
   setupAiCoachAndRecoveryListeners();

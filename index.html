@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=V1.3">
+  <link rel="stylesheet" href="index.css?v=V1.4">
   
   <!-- GSAP (GreenSock Animation Platform) - premium animations -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
@@ -93,7 +93,10 @@
           </div>
 
         </div>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 10px;">
+        <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
+          <button id="btn-manual-refresh" class="btn-icon-only-flat" title="Refresh Application" style="padding: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-light); border-radius: 50%; color: var(--text-main); cursor: pointer;">
+            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+          </button>
           <button id="btn-sync-now-header" class="btn-icon-only-flat hidden" title="Sync with Cloud">
             <i data-lucide="cloud-lightning" style="width: 18px; height: 18px; color: var(--text-dark);"></i>
           </button>
