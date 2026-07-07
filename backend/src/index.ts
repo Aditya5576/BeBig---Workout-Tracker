@@ -902,7 +902,7 @@ function getFallbackWorkout(goal: string, split: string, equipment: string, expe
 
 // AI Workout Generation Endpoint (Open to clients and guests)
 app.post('/api/ai/generate', async (c) => {
-  const { goal, split, equipment, experience, duration } = await c.req.json();
+  const { goal, split, equipment, experience, duration, customPrompt } = await c.req.json();
   
   try {
     const systemPrompt = `You are an expert fitness coach and personal trainer. 
@@ -930,7 +930,8 @@ The JSON object MUST strictly follow this typescript schema:
 - Training Split: ${split || 'Full Body'}
 - Available Equipment: ${equipment || 'Full Gym'}
 - Experience Level: ${experience || 'Intermediate'}
-- Target Duration: ${duration || '45'} minutes`;
+- Target Duration: ${duration || '45'} minutes
+${customPrompt ? `- Custom Coach Instructions/Constraints: ${customPrompt}` : ''}`;
 
     let aiRes: any;
     try {

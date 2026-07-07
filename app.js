@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.4";
+const APP_CURRENT_VERSION = "V1.5";
 
 function debounce(func, wait) {
   let timeout;
@@ -4507,14 +4507,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnManualRefresh = document.getElementById("btn-manual-refresh");
   if (btnManualRefresh) {
     btnManualRefresh.addEventListener("click", () => {
-      const icon = btnManualRefresh.querySelector("i");
-      if (icon) {
-        icon.style.transition = "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)";
-        icon.style.transform = "rotate(360deg)";
-      }
+      const icon = btnManualRefresh.querySelector("svg") || btnManualRefresh.querySelector("i") || btnManualRefresh;
+      icon.classList.add("spin-once");
       setTimeout(() => {
         window.location.reload();
-      }, 350);
+      }, 450);
     });
   }
 
@@ -6074,12 +6071,14 @@ function setupAiCoachAndRecoveryListeners() {
       const selectEquipment = document.getElementById("select-ai-equipment");
       const selectExperience = document.getElementById("select-ai-experience");
       const selectDuration = document.getElementById("select-ai-duration");
+      const inputCustomPrompt = document.getElementById("input-ai-custom-prompt");
 
       const goal = selectGoal ? selectGoal.value : "";
       const split = selectSplit ? selectSplit.value : "";
       const equipment = selectEquipment ? selectEquipment.value : "";
       const experience = selectExperience ? selectExperience.value : "";
       const duration = selectDuration ? selectDuration.value : "";
+      const customPrompt = inputCustomPrompt ? inputCustomPrompt.value.trim() : "";
 
       // Show loading UI
       document.getElementById("ai-coach-form").classList.add("hidden");
@@ -6106,7 +6105,7 @@ function setupAiCoachAndRecoveryListeners() {
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ goal, split, equipment, experience, duration })
+          body: JSON.stringify({ goal, split, equipment, experience, duration, customPrompt })
         });
 
         if (!response.ok) {

@@ -2472,6 +2472,9 @@ button, a, input, select, textarea, [data-action], .nav-item, .set-checkmark, .s
 .spinning {
   animation: spin 1s linear infinite !important;
 }
+.spin-once {
+  animation: spin 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
 /* Template editor summary bar */
 .template-summary-bar {
