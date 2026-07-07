@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="index.css?v=V1.7">
+  <link rel="stylesheet" href="index.css?v=V1.8">
   
   <!-- GSAP (GreenSock Animation Platform) - premium animations -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
@@ -1586,42 +1586,8 @@
         <p style="font-size: 0.76rem; color: var(--text-muted); margin: 6px 0 0 0; line-height: 1.4;">Check out the latest tools added in this update:</p>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;">
-        <!-- Feature 1 -->
-        <div style="display: flex; gap: 14px; align-items: flex-start;">
-          <span style="font-size: 1.4rem; line-height: 1; flex-shrink: 0; padding-top: 2px;">🪄</span>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin: 0;">Workout Text Parser</h4>
-            <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">Paste raw workout texts to instantly generate structured templates.</p>
-          </div>
-        </div>
-
-        <!-- Feature 2 -->
-        <div style="display: flex; gap: 14px; align-items: flex-start;">
-          <span style="font-size: 1.4rem; line-height: 1; flex-shrink: 0; padding-top: 2px;">🏆</span>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin: 0;">Personal Records (PRs) Sub-View</h4>
-            <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">Browse your heaviest logs and estimated 1RMs inside your Profile.</p>
-          </div>
-        </div>
-
-        <!-- Feature 3 -->
-        <div style="display: flex; gap: 14px; align-items: flex-start;">
-          <span style="font-size: 1.4rem; line-height: 1; flex-shrink: 0; padding-top: 2px;">⚡</span>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin: 0;">Flash Fast UI & Saves</h4>
-            <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">Zero lag saves and near-instant application start sequence.</p>
-          </div>
-        </div>
-
-        <!-- Feature 4 -->
-        <div style="display: flex; gap: 14px; align-items: flex-start;">
-          <span style="font-size: 1.4rem; line-height: 1; flex-shrink: 0; padding-top: 2px;">🛡️</span>
-          <div style="display: flex; flex-direction: column; gap: 2px;">
-            <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin: 0;">Self-Healing Fail-Safes</h4>
-            <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">Global error boundaries prevent any screen freezes on wakeup.</p>
-          </div>
-        </div>
+      <div id="release-notes-features-list" style="display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px;">
+        <!-- Populated dynamically from app.js -->
       </div>
 
       <div style="display: flex; gap: 8px;">
@@ -1639,6 +1605,6 @@
   <script src="https://unpkg.com/lucide@0.354.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Application JS Code -->
-  <script src="app.js?v=V1.7"></script>
+  <script src="app.js?v=V1.8"></script>
 </body>
 </html>

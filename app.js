@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.7";
+const APP_CURRENT_VERSION = "V1.8";
 
 function debounce(func, wait) {
   let timeout;
@@ -6036,6 +6036,72 @@ function handleBannedUserLogout(msg) {
   }
 }
 
+// --- DYNAMIC RELEASE NOTES POPUP ---
+const RELEASE_NOTES_DATABASE = {
+  "V1.8": {
+    version: "V1.8",
+    subtitle: "Check out the latest tools added in this update:",
+    features: [
+      {
+        emoji: "📅",
+        title: "Workout Schedule Reminders",
+        desc: "Get immediate browser notifications when you schedule a template, and daily reminders to train on your workout days."
+      },
+      {
+        emoji: "🏷️",
+        title: "Original Text Reference Logs",
+        desc: "See what text names were originally parsed from text imports right inside the Active Logger, Template Editor, and History logs."
+      },
+      {
+        emoji: "🔄",
+        title: "Manual Refresh Action",
+        desc: "A dedicated refresh button to easily force-reload the app, bypassing any browser caching issues."
+      },
+      {
+        emoji: "🧠",
+        title: "AI Coach Custom Prompts",
+        desc: "Type or paste your own training instructions and constraints to guide the AI Coach during generation."
+      }
+    ]
+  }
+};
+
+function showReleaseNotesModal() {
+  const modal = document.getElementById("modal-release-notes");
+  const listContainer = document.getElementById("release-notes-features-list");
+  if (!modal || !listContainer) return;
+
+  const release = RELEASE_NOTES_DATABASE[APP_CURRENT_VERSION] || {
+    version: APP_CURRENT_VERSION,
+    subtitle: "Check out the latest improvements added in this update:",
+    features: [
+      {
+        emoji: "🚀",
+        title: `BeBig ${APP_CURRENT_VERSION} Update`,
+        desc: "Performance improvements, stability bug fixes, and optimization updates."
+      }
+    ]
+  };
+
+  // Generate features HTML
+  let html = "";
+  release.features.forEach(f => {
+    html += `
+      <div style="display: flex; gap: 14px; align-items: flex-start; text-align: left;">
+        <span style="font-size: 1.4rem; line-height: 1; flex-shrink: 0; padding-top: 2px;">${f.emoji}</span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <h4 style="font-size: 0.86rem; font-weight: 700; color: var(--text-main); margin: 0;">${escapeHTML(f.title)}</h4>
+          <p style="font-size: 0.74rem; color: var(--text-muted); margin: 0; line-height: 1.4;">${escapeHTML(f.desc)}</p>
+        </div>
+      </div>
+    `;
+  });
+  listContainer.innerHTML = html;
+
+  modal.classList.remove("hidden");
+  localStorage.setItem("bebig_app_version", APP_CURRENT_VERSION);
+}
+
 function runSplashLoadingSequence() {
   const splash = document.getElementById("app-splash-screen");
   const progress = document.querySelector(".splash-loader-progress");
@@ -6064,11 +6130,7 @@ function runSplashLoadingSequence() {
           // Check for version update release notes first!
           const lastSeenVersion = localStorage.getItem("bebig_app_version");
           if (lastSeenVersion !== APP_CURRENT_VERSION) {
-            const releaseNotesModal = document.getElementById("modal-release-notes");
-            if (releaseNotesModal) {
-              releaseNotesModal.classList.remove("hidden");
-              localStorage.setItem("bebig_app_version", APP_CURRENT_VERSION);
-            }
+            showReleaseNotesModal();
           }
           
           if ((!state.auth || !state.auth.token) && localStorage.getItem("bebig_guest_mode") !== "true") {
