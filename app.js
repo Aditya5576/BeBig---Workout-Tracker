@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.5";
+const APP_CURRENT_VERSION = "V1.6";
 
 function debounce(func, wait) {
   let timeout;
@@ -1170,6 +1170,7 @@ function initializeWorkoutSession(templateId, fatigue) {
 
         return {
           exerciseId: ex.exerciseId,
+          importedName: ex.importedName || "",
           sets: loadedSets
         };
       });
@@ -1340,11 +1341,16 @@ function renderActiveWorkoutUI() {
       `;
     });
 
+    const importedNameHTML = activeEx.importedName 
+      ? `<span style="font-size: 0.72rem; color: var(--text-muted); display: block; font-style: italic; margin-top: 2px;">Imported as: ${escapeHTML(activeEx.importedName)}</span>` 
+      : "";
+
     card.innerHTML = `
       <div class="active-exercise-header">
         <div class="active-exercise-title-container">
           <h4 class="active-exercise-title">${exName}</h4>
-          <span class="badge" style="font-size:0.65rem;">${exDetails ? exDetails.muscle : 'Muscle'}</span>
+          ${importedNameHTML}
+          <span class="badge" style="font-size:0.65rem; margin-top: 4px;">${exDetails ? exDetails.muscle : 'Muscle'}</span>
         </div>
         <div class="active-exercise-actions">
           <button class="btn-icon-only-flat" data-action="open-plate-calc" title="Plate Calculator">
@@ -2414,10 +2420,14 @@ function renderHistoryView(searchQuery = "") {
       
       const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" class="trophy-gold-icon"></i></span>` : '';
 
+      const refText = ex.importedName 
+        ? ` <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(Ref: ${escapeHTML(ex.importedName)})</span>` 
+        : "";
+
       exerciseLinesHTML += `
-        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px;">
+        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
           ${prBadge}
-          <strong class="history-exercise-name">${escapeHTML(name)}</strong> — ${ex.sets.length} sets (${escapeHTML(setsStr)})
+          <strong class="history-exercise-name">${escapeHTML(name)}</strong>${refText} — ${ex.sets.length} sets (${escapeHTML(setsStr)})
         </div>
       `;
     });
@@ -3046,11 +3056,16 @@ function renderTemplateEditorExercises() {
 
     const currentUnit = state.settings.unit || "lbs";
 
+    const importedNameHTML = activeEx.importedName 
+      ? `<span style="font-size: 0.72rem; color: var(--text-muted); display: block; font-style: italic; margin-top: 2px;">Imported as: ${escapeHTML(activeEx.importedName)}</span>` 
+      : "";
+
     card.innerHTML = `
       <div class="active-exercise-header">
         <div>
           <h4 class="active-exercise-title">${exName}</h4>
-          <span class="badge" style="font-size:0.65rem;">${exDetails ? exDetails.muscle : 'Muscle'}</span>
+          ${importedNameHTML}
+          <span class="badge" style="font-size:0.65rem; margin-top: 4px;">${exDetails ? exDetails.muscle : 'Muscle'}</span>
         </div>
         <div class="active-exercise-actions">
           <button class="btn-icon-only-flat" data-action="move-editor-exercise-up" title="Move Up" ${exIdx === 0 ? 'disabled' : ''}>
@@ -3212,6 +3227,7 @@ function saveWorkoutTemplate() {
   // Sanitize weight/reps values
   const sanitizedExercises = templateEditorExercises.map(ex => ({
     exerciseId: ex.exerciseId,
+    importedName: ex.importedName || "",
     sets: ex.sets.map(s => ({
       type: s.type || "N",
       weight: (s.weight !== undefined && s.weight !== null && s.weight !== "") ? parseFloat(s.weight) : "",
@@ -6432,6 +6448,7 @@ function parseWorkoutText(text) {
 
       currentExercise = {
         exerciseId: matchedId,
+        importedName: cleanName,
         sets: [] // Empty if no sets line follows (user requested: if sets are not there keep it empty)
       };
       exercises.push(currentExercise);
