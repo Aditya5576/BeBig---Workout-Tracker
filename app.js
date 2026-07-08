@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.8";
+const APP_CURRENT_VERSION = "V1.9";
 
 function debounce(func, wait) {
   let timeout;
@@ -451,14 +451,14 @@ function stopWorkoutTimer() {
 // ==========================================================================
 let restTimerId = null;
 let restTotalDuration = 90;
-let restTimeRemaining = 0;
+let restEndTime = 0; // absolute target timestamp when timer ends
 
 const RestTimer = {
   start(seconds) {
     this.stop();
     SoundSynth.init(); // Warm up audio context on user interaction
     restTotalDuration = seconds;
-    restTimeRemaining = seconds;
+    restEndTime = Date.now() + (seconds * 1000);
 
     const overlay = document.getElementById("rest-timer-overlay");
     if (overlay) overlay.classList.remove("hidden");
@@ -470,6 +470,9 @@ const RestTimer = {
   tick() {
     const textEl = document.getElementById("rest-countdown-text");
     const ring = document.getElementById("timer-progress-ring");
+
+    // Calculate time remaining using absolute clock
+    const restTimeRemaining = Math.max(0, Math.ceil((restEndTime - Date.now()) / 1000));
 
     if (restTimeRemaining <= 0) {
       this.stop();
@@ -502,8 +505,6 @@ const RestTimer = {
       const offset = 283 - (percentage * 283);
       ring.style.strokeDashoffset = offset;
     }
-
-    restTimeRemaining--;
   },
 
   stop() {
@@ -520,7 +521,7 @@ const RestTimer = {
   },
 
   addTime(sec) {
-    restTimeRemaining = Math.max(0, restTimeRemaining + sec);
+    restEndTime += (sec * 1000);
     restTotalDuration = Math.max(1, restTotalDuration + sec);
     this.tick();
   }
@@ -4950,8 +4951,19 @@ function initLiveSyncEngine() {
 
   // 2. Sync immediately when user switches back to this tab / app
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.auth && state.auth.token) {
-      syncData(true);
+    if (document.visibilityState === 'visible') {
+      if (restTimerId) {
+        try { RestTimer.tick(); } catch (e) {}
+      }
+      if (state.auth && state.auth.token) {
+        syncData(true);
+      }
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (restTimerId) {
+      try { RestTimer.tick(); } catch (e) {}
     }
   });
 
@@ -6038,10 +6050,15 @@ function handleBannedUserLogout(msg) {
 
 // --- DYNAMIC RELEASE NOTES POPUP ---
 const RELEASE_NOTES_DATABASE = {
-  "V1.8": {
-    version: "V1.8",
+  "V1.9": {
+    version: "V1.9",
     subtitle: "Check out the latest tools added in this update:",
     features: [
+      {
+        emoji: "⏱️",
+        title: "Off-screen Rest Timer Fix",
+        desc: "Upgraded the rest timer to use absolute target timestamps instead of interval countdowns. Locking your screen or backgrounding the browser will no longer freeze your rest timer!"
+      },
       {
         emoji: "📅",
         title: "Workout Schedule Reminders",
@@ -6056,11 +6073,6 @@ const RELEASE_NOTES_DATABASE = {
         emoji: "🔄",
         title: "Manual Refresh Action",
         desc: "A dedicated refresh button to easily force-reload the app, bypassing any browser caching issues."
-      },
-      {
-        emoji: "🧠",
-        title: "AI Coach Custom Prompts",
-        desc: "Type or paste your own training instructions and constraints to guide the AI Coach during generation."
       }
     ]
   }
