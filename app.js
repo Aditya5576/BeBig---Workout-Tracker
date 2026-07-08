@@ -2714,17 +2714,7 @@ function openHistoryDetailModal(workoutId) {
 
   modal.classList.remove("hidden");
 
-  // Animate modal open
-  if (window.gsap) {
-    gsap.killTweensOf(modal);
-    gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.22, ease: "power2.out" });
-    const content = modal.querySelector(".modal-content");
-    if (content) {
-      gsap.killTweensOf(content);
-      gsap.fromTo(content, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" });
-    }
-  }
-
+  // No slide/fade animations to keep it static and fast
   if (window.lucide) window.lucide.createIcons();
 
   // Setup Save Image Handler specifically for this workout
@@ -2737,20 +2727,22 @@ function openHistoryDetailModal(workoutId) {
     newSaveBtn.addEventListener("click", async () => {
       newSaveBtn.disabled = true;
       const originalText = newSaveBtn.innerHTML;
-      newSaveBtn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width: 16px; height: 16px;"></i> Rendering...`;
+      newSaveBtn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width: 16px; height: 16px;"></i> Saving...`;
       if (window.lucide) window.lucide.createIcons();
 
       try {
         const shareContainer = document.getElementById("history-share-card-container");
         
-        // Wait a small moment for Lucide icons to fully render in DOM
-        await new Promise(r => setTimeout(r, 100));
+        // Wait a tiny moment to ensure UI redraw is complete
+        await new Promise(r => setTimeout(r, 50));
 
+        // Use fast, fully local rendering settings (no remote CORS stylesheet loading)
         const canvas = await html2canvas(shareContainer, {
-          backgroundColor: "#0a0f0b",
-          scale: 2, // Double scale for premium resolution
+          backgroundColor: null,
+          scale: 2, // crisp resolution
           logging: false,
-          useCORS: true
+          useCORS: false,
+          allowTaint: true
         });
 
         const link = document.createElement("a");
