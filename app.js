@@ -1330,8 +1330,7 @@ function renderActiveWorkoutUI() {
       
       // Check for progressive overload suggestion
       let showOverloadBadge = false;
-      const unit = state.settings.unit || "lbs";
-      const overloadAmount = unit === "kg" ? 2.5 : 5;
+      const overloadAmount = 5;
       
       const fatigue = state.activeWorkout ? state.activeWorkout.fatigue : "none";
       
@@ -1485,8 +1484,7 @@ function handleActiveWorkoutClickEvents(e) {
 
     if (action === "apply-overload") {
       const set = activeEx.sets[setIdx];
-      const unit = state.settings.unit || "lbs";
-      const overloadAmount = unit === "kg" ? 2.5 : 5;
+      const overloadAmount = 5;
       
       let currWeight = parseFloat(set.weight);
       if (isNaN(currWeight)) {
@@ -1546,8 +1544,7 @@ function handleActiveWorkoutClickEvents(e) {
         const lastSet = activeEx.sets[setLength - 1];
         let lastWeight = parseFloat(lastSet.weight);
         if (!isNaN(lastWeight) && lastWeight > 0) {
-          const unit = state.settings.unit || "lbs";
-          const increment = unit === "kg" ? 2.5 : 5;
+          const increment = 5;
           newWeight = lastWeight + increment;
         } else {
           newWeight = (lastSet.weight !== undefined && lastSet.weight !== null && lastSet.weight !== "") ? lastSet.weight : "";
@@ -1658,8 +1655,7 @@ function handleActiveWorkoutInputChanges(e) {
       // Auto-propagate increments to subsequent sets if they are empty
       let currentWeight = parseFloat(input.value);
       if (!isNaN(currentWeight) && currentWeight > 0) {
-        const unit = state.settings.unit || "lbs";
-        const increment = unit === "kg" ? 2.5 : 5;
+        const increment = 5;
         
         for (let i = setIdx + 1; i < activeEx.sets.length; i++) {
           let nextSet = activeEx.sets[i];
