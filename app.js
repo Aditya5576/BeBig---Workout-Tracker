@@ -4828,11 +4828,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- MANUAL REFRESH BUTTON BINDING ---
   const btnManualRefresh = document.getElementById("btn-manual-refresh");
   if (btnManualRefresh) {
-    btnManualRefresh.addEventListener("click", () => {
+    btnManualRefresh.addEventListener("click", async () => {
       const icon = btnManualRefresh.querySelector("svg") || btnManualRefresh.querySelector("i") || btnManualRefresh;
       icon.classList.add("spin-once");
+      
+      // Clear localStorage version indicator to trigger the new release notes popup on reload
+      localStorage.removeItem("bebig_app_version");
+
+      // Unregister service workers
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let registration of registrations) {
+            await registration.unregister();
+          }
+        } catch (e) {}
+      }
+
+      // Clear cache storage
+      if ('caches' in window) {
+        try {
+          const keys = await caches.keys();
+          for (let key of keys) {
+            await caches.delete(key);
+          }
+        } catch (e) {}
+      }
+
       setTimeout(() => {
-        window.location.reload();
+        // Hard reload with a fresh cache-buster timestamp query
+        window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
       }, 450);
     });
   }
