@@ -1650,9 +1650,33 @@ function handleActiveWorkoutInputChanges(e) {
   const field = input.dataset.field;
   
   if (state.activeWorkout && state.activeWorkout.exercises[exIdx]) {
-    const set = state.activeWorkout.exercises[exIdx].sets[setIdx];
+    const activeEx = state.activeWorkout.exercises[exIdx];
+    const set = activeEx.sets[setIdx];
     if (field === "weight") {
       set.weight = input.value === "" ? "" : parseFloat(input.value);
+      
+      // Auto-propagate increments to subsequent sets if they are empty
+      let currentWeight = parseFloat(input.value);
+      if (!isNaN(currentWeight) && currentWeight > 0) {
+        const unit = state.settings.unit || "lbs";
+        const increment = unit === "kg" ? 2.5 : 5;
+        
+        for (let i = setIdx + 1; i < activeEx.sets.length; i++) {
+          let nextSet = activeEx.sets[i];
+          let nextWeight = parseFloat(nextSet.weight);
+          if (isNaN(nextWeight) || nextSet.weight === "" || nextSet.weight === 0) {
+            let overloadWeight = currentWeight + (i - setIdx) * increment;
+            nextSet.weight = overloadWeight;
+            
+            // Update the DOM element directly so the user doesn't lose focus
+            const nextRow = card.querySelector(`.set-table-row[data-set-index="${i}"]`);
+            if (nextRow) {
+              const nextInput = nextRow.querySelector(".input-set-weight");
+              if (nextInput) nextInput.value = overloadWeight;
+            }
+          }
+        }
+      }
     } else if (field === "reps") {
       set.reps = input.value === "" ? "" : parseInt(input.value);
     }
@@ -2529,76 +2553,11 @@ function renderHistoryView(searchQuery = "") {
     const card = document.createElement("div");
     card.className = "history-card";
     
-    let exerciseLinesHTML = "";
-    w.exercises.forEach(ex => {
+    const exerciseNames = w.exercises.map(ex => {
       const det = state.exercises.find(e => e.id === ex.exerciseId);
-      const name = det ? det.name : "Exercise";
-      
-      const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" class="trophy-gold-icon" style="width:13px; height:13px; color:#ffd700; fill:#ffd700;"></i></span>` : '';
-
-      const refText = ex.importedName 
-        ? ` <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(Ref: ${escapeHTML(ex.importedName)})</span>` 
-        : "";
-
-      const noteHTML = ex.note
-        ? `<div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.3; background: rgba(0,0,0,0.15); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);"><i data-lucide="file-text" style="width: 13px; height: 13px; margin-top: 2px; color: var(--color-primary); flex-shrink: 0;"></i> <span>Note: ${escapeHTML(ex.note)}</span></div>`
-        : "";
-
-      // Build grid of sets
-      let setsGridHTML = "";
-      ex.sets.forEach((s, sIdx) => {
-        let setTypeLabel = "";
-        let setTypeClass = "";
-        if (s.type === "W") {
-          setTypeLabel = "W";
-          setTypeClass = "warmup";
-        } else if (s.type === "D") {
-          setTypeLabel = "D";
-          setTypeClass = "drop";
-        } else if (s.type === "F") {
-          setTypeLabel = "F";
-          setTypeClass = "failure";
-        }
-
-        const badgeHTML = setTypeLabel 
-          ? `<span class="set-type-badge ${setTypeClass}" style="font-size: 0.58rem; font-weight: 800; background: rgba(212,252,52,0.15); color: #d4fc34; padding: 1px 3px; border-radius: 3px; margin-left: 2px;">${setTypeLabel}</span>` 
-          : "";
-
-        const unitLabel = state.settings.unit || "lbs";
-
-        setsGridHTML += `
-          <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 60px;">
-            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 3px; display: flex; align-items: center; justify-content: center; gap: 2px;">
-              <span>Set ${sIdx + 1}</span>${badgeHTML}
-            </div>
-            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">${s.weight}<span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 400; margin-left: 1px;">${unitLabel}</span></div>
-            <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">${s.reps} reps</div>
-          </div>
-        `;
-      });
-
-      exerciseLinesHTML += `
-        <div class="history-exercise-detail-box" style="margin-bottom: 14px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 80%;">
-              ${prBadge}
-              <strong class="history-exercise-name" style="font-size: 0.9rem; color: var(--text-main); font-weight: 700;">${escapeHTML(name)}</strong>
-              ${refText}
-            </div>
-            <span style="font-size: 0.7rem; color: var(--color-primary); font-weight: 700; background: rgba(212,252,52,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(212,252,52,0.15);">${ex.sets.length} sets</span>
-          </div>
-          ${noteHTML}
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
-            ${setsGridHTML}
-          </div>
-        </div>
-      `;
+      return det ? det.name : "Exercise";
     });
-
-
-    const workoutNotesHTML = w.notes
-      ? `<div style="font-size:0.76rem; color:var(--text-muted); background:rgba(0,0,0,0.18); padding:8px 12px; border-radius:8px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.03); line-height:1.4;"><strong style="color:var(--text-main); font-weight:700; display:block; font-size:0.7rem; text-transform:uppercase; margin-bottom:3px;">Workout Notes</strong>${escapeHTML(w.notes)}</div>`
-      : "";
+    const previewText = exerciseNames.join(", ");
 
     card.innerHTML = `
       <div class="history-card-header">
@@ -2609,12 +2568,12 @@ function renderHistoryView(searchQuery = "") {
           </div>
           <span class="history-card-date">${dateStr}</span>
         </div>
-        <button class="btn-card-action" data-action="delete-history" data-id="${w.id}" title="Delete Log" style="position: absolute; right: 12px; top: 12px;">
+        <button class="btn-card-action" data-action="delete-history" data-id="${w.id}" title="Delete Log" style="position: absolute; right: 12px; top: 12px; z-index: 10;">
           <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
         </button>
       </div>
 
-      <div class="history-card-stats">
+      <div class="history-card-stats" style="margin-bottom: 8px;">
         <div class="history-stat-item">
           <i data-lucide="clock"></i>
           <span>${durationMin} min</span>
@@ -2629,25 +2588,188 @@ function renderHistoryView(searchQuery = "") {
         </div>
       </div>
 
-      ${workoutNotesHTML}
-
-      <div class="history-card-exercises">
-        ${exerciseLinesHTML}
+      <div class="history-card-exercises-preview" style="font-size: 0.76rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-body); font-weight: 500; opacity: 0.85; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px; margin-top: 4px;">
+        <strong style="color: var(--text-main); font-weight: 600;">Exercises: </strong>${escapeHTML(previewText)}
       </div>
     `;
 
+    // Click handler to open popup (except when clicking delete)
+    card.addEventListener("click", (e) => {
+      if (e.target.closest('[data-action="delete-history"]')) return;
+      openHistoryDetailModal(w.id);
+    });
 
     container.appendChild(card);
   });
 
   // Attach delete click handlers
   container.querySelectorAll('[data-action="delete-history"]').forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation(); // prevent opening modal
       deleteHistoryItem(btn.dataset.id);
     });
   });
 
   if (window.lucide) window.lucide.createIcons();
+}
+
+// Global reference to open modal and save image handlers
+function openHistoryDetailModal(workoutId) {
+  const w = state.history.find(h => h.id === workoutId);
+  if (!w) return;
+
+  const modal = document.getElementById("modal-history-detail");
+  if (!modal) return;
+
+  // Set basic info
+  document.getElementById("history-detail-card-name").textContent = w.name;
+  
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const dateStr = new Date(w.startTime).toLocaleDateString(undefined, options);
+  document.getElementById("history-detail-card-date").textContent = dateStr;
+
+  // Stats calculation
+  let volume = 0;
+  let setsCount = 0;
+  w.exercises.forEach(ex => {
+    ex.sets.forEach(s => {
+      volume += (s.weight || 0) * (s.reps || 0);
+      setsCount++;
+    });
+  });
+  const durationMin = Math.round((w.endTime - w.startTime) / 60000);
+
+  document.getElementById("history-detail-stat-duration").textContent = `${durationMin}m`;
+  document.getElementById("history-detail-stat-volume").textContent = `${volume.toLocaleString()} ${state.settings.unit}`;
+  document.getElementById("history-detail-stat-sets").textContent = setsCount;
+
+  // Render general workout notes
+  const notesBox = document.getElementById("history-detail-card-notes-box");
+  notesBox.innerHTML = w.notes
+    ? `<div style="font-size:0.76rem; color:var(--text-muted); background:rgba(255,255,255,0.02); padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); line-height:1.4;"><strong style="color:var(--text-main); font-weight:700; display:block; font-size:0.65rem; text-transform:uppercase; margin-bottom:4px; letter-spacing:0.5px;">Workout Notes</strong>${escapeHTML(w.notes)}</div>`
+    : "";
+
+  // Render detailed list of exercises
+  const exercisesContainer = document.getElementById("history-detail-card-exercises");
+  exercisesContainer.innerHTML = "";
+
+  w.exercises.forEach(ex => {
+    const det = state.exercises.find(e => e.id === ex.exerciseId);
+    const name = det ? det.name : "Exercise";
+    
+    const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" style="width:13px; height:13px; color:#ffd700; fill:#ffd700; display:inline-block; vertical-align:middle;"></i></span>` : '';
+
+    const refText = ex.importedName 
+      ? ` <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(Ref: ${escapeHTML(ex.importedName)})</span>` 
+      : "";
+
+    const noteHTML = ex.note
+      ? `<div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.3; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);"><i data-lucide="file-text" style="width: 13px; height: 13px; margin-top: 2px; color: var(--color-primary); flex-shrink: 0;"></i> <span>Note: ${escapeHTML(ex.note)}</span></div>`
+      : "";
+
+    let setsGridHTML = "";
+    ex.sets.forEach((s, sIdx) => {
+      let setTypeLabel = "";
+      let setTypeClass = "";
+      if (s.type === "W") {
+        setTypeLabel = "W";
+        setTypeClass = "warmup";
+      } else if (s.type === "D") {
+        setTypeLabel = "D";
+        setTypeClass = "drop";
+      } else if (s.type === "F") {
+        setTypeLabel = "F";
+        setTypeClass = "failure";
+      }
+
+      const badgeHTML = setTypeLabel 
+        ? `<span class="set-type-badge ${setTypeClass}" style="font-size: 0.58rem; font-weight: 800; background: rgba(212,252,52,0.15); color: #d4fc34; padding: 1px 3px; border-radius: 3px; margin-left: 2px;">${setTypeLabel}</span>` 
+        : "";
+
+      setsGridHTML += `
+        <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 60px;">
+          <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 3px; display: flex; align-items: center; justify-content: center; gap: 2px;">
+            <span>Set ${sIdx + 1}</span>${badgeHTML}
+          </div>
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">${s.weight}<span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 400; margin-left: 1px;">${state.settings.unit || 'lbs'}</span></div>
+          <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">${s.reps} reps</div>
+        </div>
+      `;
+    });
+
+    const exBox = document.createElement("div");
+    exBox.style.cssText = "background: rgba(255, 255, 255, 0.015); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); margin-bottom: 8px;";
+    exBox.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          ${prBadge}
+          <strong style="font-size: 0.88rem; color: var(--text-main); font-weight: 700;">${escapeHTML(name)}</strong>
+          ${refText}
+        </div>
+        <span style="font-size: 0.68rem; color: var(--color-primary); font-weight: 700; background: rgba(212,252,52,0.06); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(212,252,52,0.12);">${ex.sets.length} sets</span>
+      </div>
+      ${noteHTML}
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        ${setsGridHTML}
+      </div>
+    `;
+    exercisesContainer.appendChild(exBox);
+  });
+
+  modal.classList.remove("hidden");
+
+  // Animate modal open
+  if (window.gsap) {
+    gsap.killTweensOf(modal);
+    gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.22, ease: "power2.out" });
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+      gsap.killTweensOf(content);
+      gsap.fromTo(content, { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" });
+    }
+  }
+
+  if (window.lucide) window.lucide.createIcons();
+
+  // Setup Save Image Handler specifically for this workout
+  const saveBtn = document.getElementById("btn-history-save-image");
+  if (saveBtn) {
+    // Remove old listeners to avoid multiple downloads
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+    newSaveBtn.addEventListener("click", async () => {
+      newSaveBtn.disabled = true;
+      const originalText = newSaveBtn.innerHTML;
+      newSaveBtn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width: 16px; height: 16px;"></i> Rendering...`;
+      if (window.lucide) window.lucide.createIcons();
+
+      try {
+        const shareContainer = document.getElementById("history-share-card-container");
+        
+        // Wait a small moment for Lucide icons to fully render in DOM
+        await new Promise(r => setTimeout(r, 100));
+
+        const canvas = await html2canvas(shareContainer, {
+          backgroundColor: "#0a0f0b",
+          scale: 2, // Double scale for premium resolution
+          logging: false,
+          useCORS: true
+        });
+
+        const link = document.createElement("a");
+        link.download = `${w.name.replace(/\s+/g, "_")}_LogCard.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } catch (err) {
+        alert("Failed to render share image: " + err.message);
+      } finally {
+        newSaveBtn.disabled = false;
+        newSaveBtn.innerHTML = originalText;
+        if (window.lucide) window.lucide.createIcons();
+      }
+    });
+  }
 }
 
 function deleteHistoryItem(id) {
@@ -3968,6 +4090,14 @@ document.addEventListener("DOMContentLoaded", () => {
     searchHistoryInput.addEventListener("input", debounce((e) => {
       renderHistoryView(e.target.value);
     }, 180));
+  }
+
+  const btnCloseHistoryDetailBottom = document.getElementById("btn-close-history-detail-bottom");
+  if (btnCloseHistoryDetailBottom) {
+    btnCloseHistoryDetailBottom.addEventListener("click", () => {
+      const modal = document.getElementById("modal-history-detail");
+      if (modal) modal.classList.add("hidden");
+    });
   }
 
   // --- EXERCISES VIEW BINDINGS ---

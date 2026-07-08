@@ -4380,6 +4380,7 @@ input:focus, select:focus, textarea:focus {
   position: relative !important;
   overflow: hidden !important;
   margin-bottom: 12px !important;
+  cursor: pointer !important;
 }
 /* Vertical indicator color bar */
 .history-card::before {
