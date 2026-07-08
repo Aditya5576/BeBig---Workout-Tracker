@@ -3,7 +3,7 @@
  * Core architectural logic, state manager, logging engine, and UI renderer.
  */
 
-const APP_CURRENT_VERSION = "V1.9";
+const APP_CURRENT_VERSION = "V2.0";
 
 function debounce(func, wait) {
   let timeout;
@@ -1395,12 +1395,18 @@ function renderActiveWorkoutUI() {
 
     card.innerHTML = `
       <div class="active-exercise-header">
-        <div class="active-exercise-title-container">
-          <h4 class="active-exercise-title">${exName}</h4>
+        <div class="active-exercise-title-container" style="flex: 1; min-width: 0;">
+          <h4 class="active-exercise-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${exName}</h4>
           ${importedNameHTML}
           <span class="badge" style="font-size:0.65rem; margin-top: 4px;">${exDetails ? exDetails.muscle : 'Muscle'}</span>
         </div>
-        <div class="active-exercise-actions">
+        <div class="active-exercise-actions" style="display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: 8px;">
+          <button class="btn-icon-only-flat" data-action="move-workout-exercise-up" title="Move Up" ${exIdx === 0 ? 'disabled style="opacity: 0.2; cursor: not-allowed;"' : ''}>
+            <i data-lucide="chevron-up" style="width: 16px; height: 16px;"></i>
+          </button>
+          <button class="btn-icon-only-flat" data-action="move-workout-exercise-down" title="Move Down" ${exIdx === state.activeWorkout.exercises.length - 1 ? 'disabled style="opacity: 0.2; cursor: not-allowed;"' : ''}>
+            <i data-lucide="chevron-down" style="width: 16px; height: 16px;"></i>
+          </button>
           <button class="btn-icon-only-flat" data-action="open-plate-calc" title="Plate Calculator">
             <i data-lucide="calculator" style="width: 16px; height: 16px;"></i>
           </button>
@@ -1424,9 +1430,18 @@ function renderActiveWorkoutUI() {
         </div>
       </div>
 
-      <button class="btn-add-set" data-action="add-set">
-        <i data-lucide="plus"></i> Add Set
-      </button>
+      <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+        <button class="btn-add-set" data-action="add-set" style="margin: 0; flex: 1;">
+          <i data-lucide="plus"></i> Add Set
+        </button>
+        <button class="btn-secondary" data-action="toggle-exercise-note" style="margin: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 14px; font-size: 0.8rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); color: var(--text-main); font-weight: 600; cursor: pointer; height: 38px;">
+          <i data-lucide="file-text" style="width: 14px; height: 14px;"></i> Note
+        </button>
+      </div>
+      
+      <div class="exercise-note-container ${activeEx.note ? '' : 'hidden'}" style="margin-top: 10px;">
+        <textarea class="input-exercise-note" placeholder="Add exercise note..." style="width: 100%; min-height: 48px; max-height: 120px; font-size: 0.78rem; padding: 8px 10px; border-radius: 6px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main); resize: vertical; outline: none; line-height: 1.4; font-family: var(--font-body);">${activeEx.note || ''}</textarea>
+      </div>
     `;
 
     container.appendChild(card);
@@ -1546,6 +1561,36 @@ function handleActiveWorkoutClickEvents(e) {
       saveAllState();
       renderActiveWorkoutUI();
     } 
+    else if (action === "move-workout-exercise-up") {
+      if (exIdx > 0) {
+        const exercises = state.activeWorkout.exercises;
+        const temp = exercises[exIdx];
+        exercises[exIdx] = exercises[exIdx - 1];
+        exercises[exIdx - 1] = temp;
+        saveAllState();
+        renderActiveWorkoutUI();
+      }
+    }
+    else if (action === "move-workout-exercise-down") {
+      const exercises = state.activeWorkout.exercises;
+      if (exIdx < exercises.length - 1) {
+        const temp = exercises[exIdx];
+        exercises[exIdx] = exercises[exIdx + 1];
+        exercises[exIdx + 1] = temp;
+        saveAllState();
+        renderActiveWorkoutUI();
+      }
+    }
+    else if (action === "toggle-exercise-note") {
+      const noteContainer = card.querySelector(".exercise-note-container");
+      if (noteContainer) {
+        noteContainer.classList.toggle("hidden");
+        const textarea = noteContainer.querySelector(".input-exercise-note");
+        if (textarea && !noteContainer.classList.contains("hidden")) {
+          textarea.focus();
+        }
+      }
+    }
     else if (action === "remove-exercise") {
       state.activeWorkout.exercises.splice(exIdx, 1);
       saveAllState();
@@ -1575,6 +1620,18 @@ function handleActiveWorkoutClickEvents(e) {
 // Bind input changes to state
 function handleActiveWorkoutInputChanges(e) {
   const input = e.target;
+
+  if (input.classList.contains("input-exercise-note")) {
+    const card = input.closest(".active-exercise-card");
+    if (!card) return;
+    const exIdx = parseInt(card.dataset.index);
+    if (state.activeWorkout && state.activeWorkout.exercises[exIdx]) {
+      state.activeWorkout.exercises[exIdx].note = input.value;
+      saveAllState();
+    }
+    return;
+  }
+
   if (!input.classList.contains("input-set-weight") && !input.classList.contains("input-set-reps")) return;
 
   const card = input.closest(".active-exercise-card");
@@ -1655,6 +1712,8 @@ function finishActiveWorkout() {
     endTime: Date.now(),
     exercises: state.activeWorkout.exercises.map(ex => ({
       exerciseId: ex.exerciseId,
+      note: ex.note || "",
+      importedName: ex.importedName || "",
       sets: ex.sets.filter(s => s.completed) // only save completed sets in history
     })).filter(ex => ex.sets.length > 0), // only save exercises with completed sets
     updated_at: Date.now(),
@@ -2475,11 +2534,16 @@ function renderHistoryView(searchQuery = "") {
         ? ` <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(Ref: ${escapeHTML(ex.importedName)})</span>` 
         : "";
 
+      const noteHTML = ex.note
+        ? `<div style="font-size: 0.72rem; color: var(--text-muted); padding-left: 14px; margin-top: 1px; margin-bottom: 5px; opacity: 0.85; display: flex; align-items: center; gap: 4px;"><i data-lucide="file-text" style="width: 11px; height: 11px;"></i> Note: ${escapeHTML(ex.note)}</div>`
+        : "";
+
       exerciseLinesHTML += `
-        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: ${ex.note ? '1px' : '4px'};">
           ${prBadge}
           <strong class="history-exercise-name">${escapeHTML(name)}</strong>${refText} — ${ex.sets.length} sets (${escapeHTML(setsStr)})
         </div>
+        ${noteHTML}
       `;
     });
 
@@ -6050,10 +6114,20 @@ function handleBannedUserLogout(msg) {
 
 // --- DYNAMIC RELEASE NOTES POPUP ---
 const RELEASE_NOTES_DATABASE = {
-  "V1.9": {
-    version: "V1.9",
+  "V2.0": {
+    version: "V2.0",
     subtitle: "Check out the latest tools added in this update:",
     features: [
+      {
+        emoji: "📝",
+        title: "Exercise Note-Logging Option",
+        desc: "Add specific workout notes, details, or tempo cues to any individual exercise card in your active logger, saved persistently to history."
+      },
+      {
+        emoji: "🔃",
+        title: "Reorder Workout Sequence",
+        desc: "Easily rearrange exercise sequences in the active workout logger using the up and down chevrons in the header."
+      },
       {
         emoji: "⏱️",
         title: "Off-screen Rest Timer Fix",
@@ -6063,16 +6137,6 @@ const RELEASE_NOTES_DATABASE = {
         emoji: "📅",
         title: "Workout Schedule Reminders",
         desc: "Get immediate browser notifications when you schedule a template, and daily reminders to train on your workout days."
-      },
-      {
-        emoji: "🏷️",
-        title: "Original Text Reference Logs",
-        desc: "See what text names were originally parsed from text imports right inside the Active Logger, Template Editor, and History logs."
-      },
-      {
-        emoji: "🔄",
-        title: "Manual Refresh Action",
-        desc: "A dedicated refresh button to easily force-reload the app, bypassing any browser caching issues."
       }
     ]
   }
