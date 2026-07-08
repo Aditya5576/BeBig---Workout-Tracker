@@ -526,7 +526,8 @@ app.post('/api/sync/push', async (c) => {
                category = excluded.category,
                instructions = excluded.instructions,
                updated_at = excluded.updated_at,
-               deleted = excluded.deleted`
+               deleted = excluded.deleted
+             WHERE excluded.updated_at > exercises.updated_at`
           ).bind(
             ex.id,
             userId,
@@ -534,7 +535,7 @@ app.post('/api/sync/push', async (c) => {
             ex.muscle,
             ex.category,
             ex.instructions || '',
-            now,
+            ex.updated_at || now,
             ex.deleted ? 1 : 0
           )
         );
@@ -553,14 +554,15 @@ app.post('/api/sync/push', async (c) => {
                notes = excluded.notes,
                exercises_json = excluded.exercises_json,
                updated_at = excluded.updated_at,
-               deleted = excluded.deleted`
+               deleted = excluded.deleted
+             WHERE excluded.updated_at > templates.updated_at`
           ).bind(
             temp.id,
             userId,
             temp.name,
             temp.notes || '',
             JSON.stringify(temp.exercises),
-            now,
+            temp.updated_at || now,
             temp.deleted ? 1 : 0
           )
         );
@@ -581,7 +583,8 @@ app.post('/api/sync/push', async (c) => {
                end_time = excluded.end_time,
                exercises_json = excluded.exercises_json,
                updated_at = excluded.updated_at,
-               deleted = excluded.deleted`
+               deleted = excluded.deleted
+             WHERE excluded.updated_at > history.updated_at`
           ).bind(
             hist.id,
             userId,
@@ -590,7 +593,7 @@ app.post('/api/sync/push', async (c) => {
             hist.startTime,
             hist.endTime,
             JSON.stringify(hist.exercises),
-            now,
+            hist.updated_at || now,
             hist.deleted ? 1 : 0
           )
         );
@@ -602,6 +605,7 @@ app.post('/api/sync/push', async (c) => {
       const existing = await c.env.DB.prepare('SELECT unit, default_rest FROM settings WHERE user_id = ?').bind(userId).first<any>();
       const unit = settings?.unit || existing?.unit || 'lbs';
       const defaultRest = settings?.default_rest || existing?.default_rest || 90;
+      const settingsUpdate = settings?.updated_at || now;
 
       statements.push(
         c.env.DB.prepare(
@@ -611,13 +615,14 @@ app.post('/api/sync/push', async (c) => {
              unit = excluded.unit,
              default_rest = excluded.default_rest,
              active_workout_json = excluded.active_workout_json,
-             updated_at = excluded.updated_at`
+             updated_at = excluded.updated_at
+           WHERE excluded.updated_at >= settings.updated_at`
         ).bind(
           userId,
           unit,
           defaultRest,
           activeWorkout ? JSON.stringify(activeWorkout) : null,
-          now
+          settingsUpdate
         )
       );
     }
