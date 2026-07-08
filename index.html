@@ -1123,20 +1123,18 @@
   </div>
 
   <!-- MODAL: CLOUD AUTH (Login / Signup) -->
-  <div id="modal-cloud-auth" class="modal-overlay hidden">
-    <div class="modal-content standard" style="max-width: 380px; border-radius: 24px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 20px 40px rgba(0,0,0,0.6);">
-      <div class="modal-body" style="padding: 26px 20px 20px 20px;">
+  <div id="modal-cloud-auth" class="modal-o    <div class="modal-content standard border-glow" style="max-width: 380px; border-radius: 24px; overflow: hidden; border: 1px solid rgba(212, 252, 52, 0.15); background: rgba(10, 15, 11, 0.98); backdrop-filter: blur(25px); box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 25px rgba(212,252,52,0.05);">
+      <div class="modal-body" style="padding: 28px 24px 20px 24px;">
         <div style="text-align: center; margin-bottom: 22px;">
-          <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(16, 185, 129, 0.12); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);">
-            <i data-lucide="lock" style="width: 22px; height: 22px; stroke-width: 2.5;"></i>
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: rgba(212, 252, 52, 0.1); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto; box-shadow: 0 0 16px rgba(212, 252, 52, 0.15); border: 1px solid rgba(212, 252, 52, 0.2);">
+            <i data-lucide="lock" style="width: 22px; height: 22px; stroke-width: 2.5; color: #d4fc34;"></i>
           </div>
-          <h2 id="auth-modal-title" style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; margin-bottom: 5px;">BeBig Engine Authentication</h2>
+          <h2 id="auth-modal-title" style="font-family: var(--font-heading); font-size: 1.35rem; font-weight: 800; margin-bottom: 5px; color: #d4fc34;">BeBig Engine Authentication</h2>
           <p style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; padding: 0 10px;">Authenticate your credentials to securely synchronize custom regimens, weekly protocols, and workout logs across all desktop and mobile platforms.</p>
-
         </div>
 
         <!-- Tabs for Login/Signup -->
-        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 18px; padding: 4px;">
+        <div class="toggle-switch-container btn-full-width" style="margin-bottom: 18px; padding: 4px; border: 1px solid rgba(255,255,255,0.04); background: rgba(0,0,0,0.25);">
           <button id="btn-tab-login" class="toggle-btn active" style="width: 50%;">Login</button>
           <button id="btn-tab-signup" class="toggle-btn" style="width: 50%;">Sign Up</button>
         </div>
@@ -1146,28 +1144,56 @@
         <div class="form-group hidden" id="group-auth-name" style="margin-bottom: 14px;">
           <label for="input-auth-name" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Full Name</label>
           <div style="position: relative;">
-            <i data-lucide="user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
-            <input type="text" id="input-auth-name" placeholder="e.g. Aditya Patil" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+            <i data-lucide="user" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #d4fc34;"></i>
+            <input type="text" id="input-auth-name" placeholder="e.g. Aditya Patil" style="padding-left: 36px; height: 42px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main);">
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
           <label for="input-auth-email" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Email Address</label>
           <div style="position: relative;">
-            <i data-lucide="mail" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
-            <input type="text" id="input-auth-email" placeholder="e.g. aditya@gmail.com" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+            <i data-lucide="mail" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #d4fc34;"></i>
+            <input type="email" id="input-auth-email" placeholder="e.g. aditya@gmail.com" style="padding-left: 36px; height: 42px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main);">
           </div>
         </div>
         
-        <div class="form-group" style="margin-bottom: 18px;">
+        <div class="form-group" id="group-auth-password" style="margin-bottom: 14px;">
           <label for="input-auth-password" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Password</label>
           <div style="position: relative;">
-            <i data-lucide="key-round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-dark);"></i>
-            <input type="password" id="input-auth-password" placeholder="Min 6 characters" style="padding-left: 36px; height: 42px; border-radius: 10px;">
+            <i data-lucide="key-round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #d4fc34;"></i>
+            <input type="password" id="input-auth-password" placeholder="Min 6 characters" style="padding-left: 36px; height: 42px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main);">
           </div>
         </div>
+
+        <!-- Forgot Password Link -->
+        <div id="auth-forgot-link-container" style="display: flex; justify-content: flex-end; margin-top: -6px; margin-bottom: 14px;">
+          <button id="btn-forgot-password" style="background: none; border: none; color: var(--color-primary); font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 0; outline: none;">Forgot Password?</button>
+        </div>
+
+        <!-- Recovery Code Input (hidden by default) -->
+        <div class="form-group hidden" id="group-auth-code" style="margin-bottom: 14px;">
+          <label for="input-auth-code" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Recovery Code</label>
+          <div style="position: relative;">
+            <i data-lucide="shield-check" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #d4fc34;"></i>
+            <input type="text" id="input-auth-code" placeholder="6-digit recovery code" style="padding-left: 36px; height: 42px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main);">
+          </div>
+        </div>
+
+        <!-- New Password Input (hidden by default) -->
+        <div class="form-group hidden" id="group-auth-new-password" style="margin-bottom: 18px;">
+          <label for="input-auth-new-password" style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">New Password</label>
+          <div style="position: relative;">
+            <i data-lucide="key-round" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: #d4fc34;"></i>
+            <input type="password" id="input-auth-new-password" placeholder="Min 6 characters" style="padding-left: 36px; height: 42px; border-radius: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); color: var(--text-main);">
+          </div>
+        </div>
+
+        <!-- Back to Login Link (hidden by default) -->
+        <div id="auth-back-to-login-container" class="hidden" style="display: flex; justify-content: center; margin-top: 4px; margin-bottom: 14px;">
+          <button id="btn-back-to-login" style="background: none; border: none; color: var(--color-primary); font-size: 0.78rem; font-weight: 600; cursor: pointer; padding: 0; outline: none;">Back to Login</button>
+        </div>
       </div>
-      <div class="modal-footer" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px 22px 16px; border-top: none; background: rgba(255,255,255,0.01);">
+      <div class="modal-footer" style="display: flex; flex-direction: column; gap: 8px; padding: 12px 24px 22px 24px; border-top: none; background: rgba(255,255,255,0.01);">
         <button id="btn-auth-submit" class="btn-success btn-full-width" style="height: 42px; border-radius: 10px; font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem;">Login</button>
         <button id="btn-auth-guest" class="btn-secondary btn-full-width" style="height: 42px; border-radius: 10px; font-size: 0.85rem; border: 1px solid rgba(255,255,255,0.06); background: transparent;">Continue as Guest (Offline Mode)</button>
       </div>

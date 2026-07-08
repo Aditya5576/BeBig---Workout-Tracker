@@ -1544,7 +1544,14 @@ function handleActiveWorkoutClickEvents(e) {
 
       if (setLength > 0) {
         const lastSet = activeEx.sets[setLength - 1];
-        newWeight = (lastSet.weight !== undefined && lastSet.weight !== null && lastSet.weight !== "") ? lastSet.weight : "";
+        let lastWeight = parseFloat(lastSet.weight);
+        if (!isNaN(lastWeight) && lastWeight > 0) {
+          const unit = state.settings.unit || "lbs";
+          const increment = unit === "kg" ? 2.5 : 5;
+          newWeight = lastWeight + increment;
+        } else {
+          newWeight = (lastSet.weight !== undefined && lastSet.weight !== null && lastSet.weight !== "") ? lastSet.weight : "";
+        }
         newReps = (lastSet.reps !== undefined && lastSet.reps !== null && lastSet.reps !== "") ? lastSet.reps : "";
         newType = lastSet.type || "N";
       }
@@ -2526,27 +2533,72 @@ function renderHistoryView(searchQuery = "") {
     w.exercises.forEach(ex => {
       const det = state.exercises.find(e => e.id === ex.exerciseId);
       const name = det ? det.name : "Exercise";
-      const setsStr = ex.sets.map(s => `${s.weight}×${s.reps}`).join(", ");
       
-      const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" class="trophy-gold-icon"></i></span>` : '';
+      const prBadge = ex.isPR ? `<span class="pr-trophy-badge" title="New Personal Record!"><i data-lucide="trophy" class="trophy-gold-icon" style="width:13px; height:13px; color:#ffd700; fill:#ffd700;"></i></span>` : '';
 
       const refText = ex.importedName 
         ? ` <span style="font-size:0.7rem; color:var(--text-muted); font-style:italic;">(Ref: ${escapeHTML(ex.importedName)})</span>` 
         : "";
 
       const noteHTML = ex.note
-        ? `<div style="font-size: 0.72rem; color: var(--text-muted); padding-left: 14px; margin-top: 1px; margin-bottom: 5px; opacity: 0.85; display: flex; align-items: center; gap: 4px;"><i data-lucide="file-text" style="width: 11px; height: 11px;"></i> Note: ${escapeHTML(ex.note)}</div>`
+        ? `<div style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; line-height: 1.3; background: rgba(0,0,0,0.15); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.03);"><i data-lucide="file-text" style="width: 13px; height: 13px; margin-top: 2px; color: var(--color-primary); flex-shrink: 0;"></i> <span>Note: ${escapeHTML(ex.note)}</span></div>`
         : "";
 
+      // Build grid of sets
+      let setsGridHTML = "";
+      ex.sets.forEach((s, sIdx) => {
+        let setTypeLabel = "";
+        let setTypeClass = "";
+        if (s.type === "W") {
+          setTypeLabel = "W";
+          setTypeClass = "warmup";
+        } else if (s.type === "D") {
+          setTypeLabel = "D";
+          setTypeClass = "drop";
+        } else if (s.type === "F") {
+          setTypeLabel = "F";
+          setTypeClass = "failure";
+        }
+
+        const badgeHTML = setTypeLabel 
+          ? `<span class="set-type-badge ${setTypeClass}" style="font-size: 0.58rem; font-weight: 800; background: rgba(212,252,52,0.15); color: #d4fc34; padding: 1px 3px; border-radius: 3px; margin-left: 2px;">${setTypeLabel}</span>` 
+          : "";
+
+        const unitLabel = state.settings.unit || "lbs";
+
+        setsGridHTML += `
+          <div style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; justify-content: center; min-width: 60px;">
+            <div style="font-size: 0.62rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 3px; display: flex; align-items: center; justify-content: center; gap: 2px;">
+              <span>Set ${sIdx + 1}</span>${badgeHTML}
+            </div>
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">${s.weight}<span style="font-size: 0.65rem; color: var(--text-muted); font-weight: 400; margin-left: 1px;">${unitLabel}</span></div>
+            <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 1px;">${s.reps} reps</div>
+          </div>
+        `;
+      });
+
       exerciseLinesHTML += `
-        <div class="history-exercise-line" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: ${ex.note ? '1px' : '4px'};">
-          ${prBadge}
-          <strong class="history-exercise-name">${escapeHTML(name)}</strong>${refText} — ${ex.sets.length} sets (${escapeHTML(setsStr)})
+        <div class="history-exercise-detail-box" style="margin-bottom: 14px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 80%;">
+              ${prBadge}
+              <strong class="history-exercise-name" style="font-size: 0.9rem; color: var(--text-main); font-weight: 700;">${escapeHTML(name)}</strong>
+              ${refText}
+            </div>
+            <span style="font-size: 0.7rem; color: var(--color-primary); font-weight: 700; background: rgba(212,252,52,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(212,252,52,0.15);">${ex.sets.length} sets</span>
+          </div>
+          ${noteHTML}
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+            ${setsGridHTML}
+          </div>
         </div>
-        ${noteHTML}
       `;
     });
 
+
+    const workoutNotesHTML = w.notes
+      ? `<div style="font-size:0.76rem; color:var(--text-muted); background:rgba(0,0,0,0.18); padding:8px 12px; border-radius:8px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.03); line-height:1.4;"><strong style="color:var(--text-main); font-weight:700; display:block; font-size:0.7rem; text-transform:uppercase; margin-bottom:3px;">Workout Notes</strong>${escapeHTML(w.notes)}</div>`
+      : "";
 
     card.innerHTML = `
       <div class="history-card-header">
@@ -2576,6 +2628,8 @@ function renderHistoryView(searchQuery = "") {
           <span>${setsCount} sets</span>
         </div>
       </div>
+
+      ${workoutNotesHTML}
 
       <div class="history-card-exercises">
         ${exerciseLinesHTML}
@@ -4414,6 +4468,16 @@ document.addEventListener("DOMContentLoaded", () => {
     btnTabSignup.addEventListener("click", () => switchAuthTab("signup"));
   }
 
+  const btnForgotPassword = document.getElementById("btn-forgot-password");
+  if (btnForgotPassword) {
+    btnForgotPassword.addEventListener("click", () => switchAuthTab("forgot"));
+  }
+
+  const btnBackToLogin = document.getElementById("btn-back-to-login");
+  if (btnBackToLogin) {
+    btnBackToLogin.addEventListener("click", () => switchAuthTab("login"));
+  }
+
   const btnAuthSubmit = document.getElementById("btn-auth-submit");
   if (btnAuthSubmit) {
     btnAuthSubmit.addEventListener("click", handleAuthSubmit);
@@ -5097,29 +5161,172 @@ function switchAuthTab(tab) {
   const signupTab = document.getElementById("btn-tab-signup");
   const submitBtn = document.getElementById("btn-auth-submit");
   const title = document.getElementById("auth-modal-title");
+  
   const nameGroup = document.getElementById("group-auth-name");
+  const emailGroup = document.getElementById("input-auth-email")?.closest(".form-group");
+  const passGroup = document.getElementById("group-auth-password");
+  const codeGroup = document.getElementById("group-auth-code");
+  const newPassGroup = document.getElementById("group-auth-new-password");
+
+  const forgotLinkContainer = document.getElementById("auth-forgot-link-container");
+  const backToLoginContainer = document.getElementById("auth-back-to-login-container");
+
+  const tabsContainer = loginTab ? loginTab.parentElement : null;
 
   if (tab === "login") {
-    loginTab.classList.add("active");
-    signupTab.classList.remove("active");
+    if (tabsContainer) tabsContainer.classList.remove("hidden");
+    if (loginTab) loginTab.classList.add("active");
+    if (signupTab) signupTab.classList.remove("active");
+    if (nameGroup) nameGroup.classList.add("hidden");
+    if (emailGroup) emailGroup.classList.remove("hidden");
+    if (passGroup) passGroup.classList.remove("hidden");
+    if (codeGroup) codeGroup.classList.add("hidden");
+    if (newPassGroup) newPassGroup.classList.add("hidden");
+    
+    if (forgotLinkContainer) forgotLinkContainer.classList.remove("hidden");
+    if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
+    
     submitBtn.textContent = "Login";
     title.textContent = "Cloud Login";
-    if (nameGroup) nameGroup.classList.add("hidden");
-  } else {
-    loginTab.classList.remove("active");
-    signupTab.classList.add("active");
+  } 
+  else if (tab === "signup") {
+    if (tabsContainer) tabsContainer.classList.remove("hidden");
+    if (loginTab) loginTab.classList.remove("active");
+    if (signupTab) signupTab.classList.add("active");
+    if (nameGroup) nameGroup.classList.remove("hidden");
+    if (emailGroup) emailGroup.classList.remove("hidden");
+    if (passGroup) passGroup.classList.remove("hidden");
+    if (codeGroup) codeGroup.classList.add("hidden");
+    if (newPassGroup) newPassGroup.classList.add("hidden");
+
+    if (forgotLinkContainer) forgotLinkContainer.classList.add("hidden");
+    if (backToLoginContainer) backToLoginContainer.classList.add("hidden");
+
     submitBtn.textContent = "Sign Up";
     title.textContent = "Create Cloud Account";
-    if (nameGroup) nameGroup.classList.remove("hidden");
+  } 
+  else if (tab === "forgot") {
+    if (tabsContainer) tabsContainer.classList.add("hidden");
+    if (nameGroup) nameGroup.classList.add("hidden");
+    if (emailGroup) emailGroup.classList.remove("hidden");
+    if (passGroup) passGroup.classList.add("hidden");
+    if (codeGroup) codeGroup.classList.add("hidden");
+    if (newPassGroup) newPassGroup.classList.add("hidden");
+
+    if (forgotLinkContainer) forgotLinkContainer.classList.add("hidden");
+    if (backToLoginContainer) backToLoginContainer.classList.remove("hidden");
+
+    submitBtn.textContent = "Send Recovery Code";
+    title.textContent = "Reset Password";
+  } 
+  else if (tab === "reset") {
+    if (tabsContainer) tabsContainer.classList.add("hidden");
+    if (nameGroup) nameGroup.classList.add("hidden");
+    if (emailGroup) emailGroup.classList.add("hidden");
+    if (passGroup) passGroup.classList.add("hidden");
+    if (codeGroup) codeGroup.classList.remove("hidden");
+    if (newPassGroup) newPassGroup.classList.remove("hidden");
+
+    if (forgotLinkContainer) forgotLinkContainer.classList.add("hidden");
+    if (backToLoginContainer) backToLoginContainer.classList.remove("hidden");
+
+    submitBtn.textContent = "Update Password";
+    title.textContent = "Change Password";
   }
 }
 
 async function handleAuthSubmit() {
   const email = document.getElementById("input-auth-email").value.trim();
-  const password = document.getElementById("input-auth-password").value;
   const errorEl = document.getElementById("auth-error-msg");
   const submitBtn = document.getElementById("btn-auth-submit");
 
+  if (activeAuthTab === "forgot") {
+    if (!email) {
+      if (errorEl) {
+        errorEl.textContent = "Email address is required.";
+        errorEl.classList.remove("hidden");
+      }
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Sending...";
+    if (errorEl) errorEl.classList.add("hidden");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Request failed");
+
+      alert(`🔐 Recovery code generated: ${data.code}\n(An email simulation was successful. Type this code to continue!)`);
+      
+      switchAuthTab("reset");
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove("hidden");
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Send Recovery Code";
+    }
+    return;
+  }
+
+  if (activeAuthTab === "reset") {
+    const code = document.getElementById("input-auth-code").value.trim();
+    const newPassword = document.getElementById("input-auth-new-password").value;
+
+    if (!code || !newPassword) {
+      if (errorEl) {
+        errorEl.textContent = "Recovery code and new password are required.";
+        errorEl.classList.remove("hidden");
+      }
+      return;
+    }
+    if (newPassword.length < 6) {
+      if (errorEl) {
+        errorEl.textContent = "Password must be at least 6 characters.";
+        errorEl.classList.remove("hidden");
+      }
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Resetting...";
+    if (errorEl) errorEl.classList.add("hidden");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, newPassword })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Reset failed");
+
+      alert("🎉 Password reset successfully! You can now log in with your new password.");
+      switchAuthTab("login");
+      
+      document.getElementById("input-auth-code").value = "";
+      document.getElementById("input-auth-new-password").value = "";
+      document.getElementById("input-auth-password").value = "";
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove("hidden");
+      }
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Update Password";
+    }
+    return;
+  }
+
+  const password = document.getElementById("input-auth-password").value;
   if (!email || !password) {
     if (errorEl) {
       errorEl.textContent = "Email and password are required.";
@@ -5181,7 +5388,6 @@ async function handleAuthSubmit() {
 
     document.getElementById("modal-cloud-auth").classList.add("hidden");
     syncData(true);
-
 
   } catch (err) {
     if (errorEl) {
