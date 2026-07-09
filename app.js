@@ -261,8 +261,7 @@ function saveAllState() {
   store.set("settings", state.settings);
   store.set("auth", state.auth);
   store.set("bebig_schedule", state.schedule);
-  // Schedule a cloud push 500ms after any local state write (debounced)
-  if (typeof scheduleSyncAfterWrite === 'function' && !isSyncing) {
+  if (typeof scheduleSyncAfterWrite === 'function') {
     scheduleSyncAfterWrite();
   }
 }
@@ -5208,17 +5207,26 @@ async function syncData(isSilent = false) {
   } finally {
     isSyncing = false;
     updateCloudUI();
+
+    // If new changes were made during the sync (marking items dirty), trigger a follow-up sync
+    const hasDirty = state.exercises.some(e => e.dirty) ||
+                     state.templates.some(t => t.dirty) ||
+                     state.history.some(h => h.dirty) ||
+                     state.settings.dirty;
+    if (hasDirty && typeof scheduleSyncAfterWrite === 'function') {
+      scheduleSyncAfterWrite();
+    }
   }
 }
 
-// ── Kick off background sync every 8 seconds + on visibility/online ──────────
+// ── Kick off background sync every 4 seconds + on visibility/online ──────────
 function initLiveSyncEngine() {
-  // 1. Background polling — every 8 seconds
+  // 1. Background polling — every 4 seconds
   setInterval(() => {
     if (state.auth && state.auth.token && document.visibilityState === 'visible' && navigator.onLine) {
       syncData(true);
     }
-  }, 8000);
+  }, 4000);
 
   // 2. Sync immediately when user switches back to this tab / app
   document.addEventListener('visibilitychange', () => {
