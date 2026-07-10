@@ -463,29 +463,50 @@ app.get('/api/sync/pull', async (c) => {
       settingsPromise,
     ]);
 
-    // Parse JSON lists
+    // Parse JSON lists safely
     const exercises = exercisesRes.results || [];
     
-    const templates = (templatesRes.results || []).map((t: any) => ({
-      ...t,
-      exercises: JSON.parse(t.exercises_json),
-    }));
+    const templates = (templatesRes.results || []).map((t: any) => {
+      let parsedEx = [];
+      try {
+        parsedEx = t.exercises_json ? JSON.parse(t.exercises_json) : [];
+      } catch (e) {
+        console.error("Failed to parse exercises_json for template", t.id, e);
+      }
+      return {
+        ...t,
+        exercises: Array.isArray(parsedEx) ? parsedEx : [],
+      };
+    });
 
-    const history = (historyRes.results || []).map((h: any) => ({
-      id: h.id,
-      name: h.name,
-      notes: h.notes,
-      startTime: h.start_time,
-      endTime: h.end_time,
-      exercises: JSON.parse(h.exercises_json),
-      updated_at: h.updated_at,
-      deleted: h.deleted
-    }));
+    const history = (historyRes.results || []).map((h: any) => {
+      let parsedEx = [];
+      try {
+        parsedEx = h.exercises_json ? JSON.parse(h.exercises_json) : [];
+      } catch (e) {
+        console.error("Failed to parse exercises_json for history", h.id, e);
+      }
+      return {
+        id: h.id,
+        name: h.name,
+        notes: h.notes,
+        startTime: h.start_time,
+        endTime: h.end_time,
+        exercises: Array.isArray(parsedEx) ? parsedEx : [],
+        updated_at: h.updated_at,
+        deleted: h.deleted
+      };
+    });
 
     const broadcastStr = await c.env.SESSIONS.get('broadcast:global');
     const broadcast = broadcastStr ? JSON.parse(broadcastStr) : null;
 
-    const activeWorkout = settingsRes?.active_workout_json ? JSON.parse(settingsRes.active_workout_json) : null;
+    let activeWorkout = null;
+    try {
+      activeWorkout = settingsRes?.active_workout_json ? JSON.parse(settingsRes.active_workout_json) : null;
+    } catch (e) {
+      console.error("Failed to parse active_workout_json", e);
+    }
     
     let settingsPayload = null;
     if (settingsRes && (settingsRes.updated_at || 0) > lastPulledAt) {

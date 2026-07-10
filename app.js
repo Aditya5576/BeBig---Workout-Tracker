@@ -186,13 +186,24 @@ function initStore() {
     : [];
   state.exercises = [...DEFAULT_EXERCISES, ...customExercises];
 
-  state.templates = store.get("templates", DEFAULT_TEMPLATES);
-  state.history = store.get("history", []);
+  const storedTemplates = store.get("templates", DEFAULT_TEMPLATES);
+  state.templates = Array.isArray(storedTemplates) ? storedTemplates : DEFAULT_TEMPLATES;
+
+  const storedHistory = store.get("history", []);
+  state.history = Array.isArray(storedHistory) ? storedHistory : [];
+
   state.activeWorkout = store.get("activeWorkout", null);
   state.settings = store.get("settings", { unit: "lbs", defaultRest: 90, notificationsEnabled: false, broadcastFilterDuration: "12" });
+  if (!state.settings || typeof state.settings !== 'object') {
+    state.settings = { unit: "lbs", defaultRest: 90, notificationsEnabled: false, broadcastFilterDuration: "12" };
+  }
   if (!state.settings.broadcastFilterDuration) state.settings.broadcastFilterDuration = "12";
 
   state.auth = store.get("auth", { email: null, token: null, lastSyncTime: 0, isAdmin: false });
+  if (!state.auth || typeof state.auth !== 'object') {
+    state.auth = { email: null, token: null, lastSyncTime: 0, isAdmin: false };
+  }
+
   state.schedule = store.get("bebig_schedule", {
     "Mon": null,
     "Tue": null,
@@ -202,6 +213,9 @@ function initStore() {
     "Sat": null,
     "Sun": null
   });
+  if (!state.schedule || typeof state.schedule !== 'object') {
+    state.schedule = { "Mon": null, "Tue": null, "Wed": null, "Thu": null, "Fri": null, "Sat": null, "Sun": null };
+  }
 
   // Ensure all entities have sync properties and dirty flags
   state.exercises.forEach(ex => {
@@ -236,7 +250,7 @@ function initStore() {
   // If logs were corrupted, trigger a fresh pull of all user history from the database
   if (needsFullSync && state.auth && state.auth.token) {
     state.auth.lastSyncTime = 0;
-    state.history = state.history.filter(h => h.startTime !== undefined && h.endTime !== undefined);
+    state.history = state.history.filter(h => h && h.startTime !== undefined && h.endTime !== undefined);
   }
 
   if (state.settings.notificationsEnabled === undefined) {
@@ -618,12 +632,14 @@ const Analytics = {
   },
 
   calculateAllStats() {
+    const activeHistory = state.history.filter(w => !w.deleted);
+
     // Total Workouts
-    document.getElementById("stat-total-workouts").textContent = state.history.length;
+    document.getElementById("stat-total-workouts").textContent = activeHistory.length;
 
     // Total Weight Volume Lifted
     let totalVol = 0;
-    state.history.forEach(workout => {
+    activeHistory.forEach(workout => {
       workout.exercises.forEach(ex => {
         ex.sets.forEach(set => {
           if (set.completed) {
@@ -639,7 +655,7 @@ const Analytics = {
     document.getElementById("stat-total-volume").textContent = `${formattedVol} ${state.settings.unit}`;
 
     // Streak Calculations (Workouts completed on different calendar days)
-    const sortedDates = state.history
+    const sortedDates = activeHistory
       .map(w => new Date(w.endTime).toDateString())
       .filter((v, i, self) => self.indexOf(v) === i) // unique dates
       .map(dStr => new Date(dStr))
@@ -855,9 +871,9 @@ const Analytics = {
     const previousVal = select.value;
     select.innerHTML = '<option value="">Select an Exercise</option>';
 
-    // Find all unique exercises present in history logs
+    // Find all unique exercises present in non-deleted history logs
     const loggedExercisesIds = new Set();
-    state.history.forEach(w => {
+    state.history.filter(w => !w.deleted).forEach(w => {
       w.exercises.forEach(ex => loggedExercisesIds.add(ex.exerciseId));
     });
 
@@ -901,7 +917,7 @@ const Analytics = {
 
     // Gather logs for this exercise across all history (sorted chronological)
     const logs = [];
-    state.history.forEach(w => {
+    state.history.filter(w => !w.deleted).forEach(w => {
       const targetEx = w.exercises.find(e => e.exerciseId === exerciseId);
       if (targetEx) {
         // Find maximum weight, max volume, and max estimated 1RM for this workout
@@ -1065,9 +1081,9 @@ const Analytics = {
       }
     }
 
-    // Compile workouts count by day
+    // Compile workouts count by day safely (ignore deleted)
     const workoutCounts = {};
-    state.history.forEach(w => {
+    state.history.filter(w => !w.deleted).forEach(w => {
       const dateStr = new Date(w.endTime).toDateString();
       workoutCounts[dateStr] = (workoutCounts[dateStr] || 0) + 1;
     });
@@ -1169,18 +1185,20 @@ function initializeWorkoutSession(templateId, fatigue) {
   if (templateId) {
     const tmpl = state.templates.find(t => t.id === templateId);
     if (tmpl) {
-      workoutName = tmpl.name.replace(" (Chest/Shoulders/Triceps)", "").replace(" (Back/Biceps)", "").replace(" (Quads/Hamstrings/Calves)", "");
+      workoutName = String(tmpl.name || "Evening Workout").replace(" (Chest/Shoulders/Triceps)", "").replace(" (Back/Biceps)", "").replace(" (Quads/Hamstrings/Calves)", "");
       workoutNotes = tmpl.notes || "";
       
-      // Load exercises and sets from template
-      exercisesToLoad = tmpl.exercises.map(ex => {
+      // Load exercises and sets from template safely
+      const rawExercises = Array.isArray(tmpl.exercises) ? tmpl.exercises : [];
+      exercisesToLoad = rawExercises.map(ex => {
         const previousString = getPreviousSetStatsString(ex.exerciseId);
+        const rawSets = Array.isArray(ex.sets) ? ex.sets : [];
         
-        let loadedSets = ex.sets.map((s, idx) => ({
+        let loadedSets = rawSets.map((s, idx) => ({
           id: `set-${Date.now()}-${idx}-${Math.random()}`,
           type: s.type || "N",
-          weight: s.weight,
-          reps: s.reps,
+          weight: s.weight !== undefined ? s.weight : 0,
+          reps: s.reps !== undefined ? s.reps : 10,
           completed: false,
           previous: previousString
         }));
@@ -1274,6 +1292,8 @@ function getPreviousSetStatsString(exerciseId) {
 function renderActiveWorkoutUI() {
   const container = document.getElementById("active-exercises-list");
   if (!container) return;
+
+  const unit = state.settings.unit || "lbs";
 
   if (!state.activeWorkout || state.activeWorkout.exercises.length === 0) {
     container.innerHTML = `
@@ -6730,10 +6750,12 @@ function setupAiCoachAndRecoveryListeners() {
   const btnSave = document.getElementById("btn-ai-result-save");
   if (btnSave) {
     btnSave.addEventListener("click", () => {
-      if (!currentGeneratedWorkout) return;
+      if (!currentGeneratedWorkout || !Array.isArray(currentGeneratedWorkout.exercises)) return;
 
       const exercisesMapped = currentGeneratedWorkout.exercises.map(ex => {
-        let existingEx = state.exercises.find(e => e.name.toLowerCase() === ex.name.toLowerCase());
+        if (!ex) return null;
+        const exName = String(ex.name || "AI Exercise").trim();
+        let existingEx = state.exercises.find(e => e && e.name && e.name.toLowerCase() === exName.toLowerCase());
         let exId;
         if (existingEx) {
           exId = existingEx.id;
@@ -6741,7 +6763,7 @@ function setupAiCoachAndRecoveryListeners() {
           exId = "custom-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
           const newEx = {
             id: exId,
-            name: ex.name,
+            name: exName,
             muscle: ex.muscle || "Chest",
             category: ex.category || "Dumbbell",
             instructions: "Generated by AI Coach.",
@@ -6752,7 +6774,8 @@ function setupAiCoachAndRecoveryListeners() {
           state.exercises.push(newEx);
         }
 
-        const mappedSets = ex.sets.map(s => ({
+        const rawSets = Array.isArray(ex.sets) ? ex.sets : [];
+        const mappedSets = rawSets.map(s => ({
           type: s.type || "N",
           weight: s.weight || 0,
           reps: s.reps || 10
@@ -6762,7 +6785,7 @@ function setupAiCoachAndRecoveryListeners() {
           exerciseId: exId,
           sets: mappedSets
         };
-      });
+      }).filter(Boolean);
 
       const newTmpl = {
         id: "template-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
