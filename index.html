@@ -88,10 +88,10 @@
     <!-- Main Shell resembling a sleek mobile layout, centered on desktop -->
     <main class="phone-shell">
       <!-- App Header -->
-      <header class="app-header">
-        <div class="header-left-group">
-          <div class="header-logo">
-            <svg class="app-logo-icon" viewBox="0 0 100 100" width="28" height="28" style="margin-right: 8px;">
+      <header class="app-header flex items-center justify-between px-4 py-3 bg-neutral-950/90 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50">
+        <div class="header-left-group flex items-center">
+          <div class="header-logo flex items-center gap-2">
+            <svg class="app-logo-icon" viewBox="0 0 100 100" width="28" height="28">
               <defs>
                 <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stop-color="#d4fc34" />
@@ -105,18 +105,17 @@
               <rect x="24" y="35" width="6" height="30" rx="2.5" fill="url(#logo-grad)" />
               <rect x="70" y="35" width="6" height="30" rx="2.5" fill="url(#logo-grad)" />
             </svg>
-            <span class="logo-accent" style="color: #d4fc34; font-weight: 800; letter-spacing: 0.5px;">BE</span><span class="logo-light" style="color: #ffffff; font-weight: 400; opacity: 0.95; letter-spacing: 0.5px;">BIG</span>
+            <span class="logo-accent text-brand font-extrabold tracking-wide text-lg">BE</span><span class="logo-light text-white/90 font-light tracking-wide text-lg">BIG</span>
           </div>
-
         </div>
-        <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
-          <button id="btn-manual-refresh" class="btn-icon-only-flat" title="Refresh Application" style="padding: 0; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-light); border-radius: 50%; color: var(--text-main); cursor: pointer;">
-            <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+        <div class="header-actions flex items-center gap-2">
+          <button id="btn-manual-refresh" class="btn-icon-only-flat w-8 h-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10 hover:text-brand transition-all duration-200 cursor-pointer" title="Refresh Application">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           </button>
-          <button id="btn-sync-now-header" class="btn-icon-only-flat hidden" title="Sync with Cloud">
-            <i data-lucide="cloud-lightning" style="width: 18px; height: 18px; color: var(--text-dark);"></i>
+          <button id="btn-sync-now-header" class="btn-icon-only-flat hidden w-8 h-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-neutral-400 hover:text-brand transition-all duration-200" title="Sync with Cloud">
+            <i data-lucide="cloud-lightning" class="w-4 h-4"></i>
           </button>
-          <div class="profile-avatar">AB</div>
+          <div class="profile-avatar w-8 h-8 rounded-full border-2 border-brand bg-brand/10 flex items-center justify-center text-brand text-xs font-black cursor-pointer shadow-[0_0_8px_rgba(212,252,52,0.15)]">AB</div>
         </div>
       </header>
 
@@ -278,58 +277,58 @@
 
         <!-- 1. WORKOUTS VIEW (formerly templates start view) -->
         <section id="view-workouts" class="app-view">
-          <div class="start-header-group">
-            <h1 class="view-title">Workout Templates</h1>
-            <p class="start-subtitle">Select a routine or build a new one</p>
+          <div class="start-header-group mb-5">
+            <h1 class="view-title text-xl font-extrabold tracking-tight text-white">Workout Templates</h1>
+            <p class="start-subtitle text-xs text-neutral-400 mt-1">Select a routine or build a new one</p>
           </div>
           
           <!-- Quick Start Card -->
-          <div class="action-card start-empty-card" id="btn-start-empty">
+          <div class="action-card start-empty-card flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-brand/10 to-emerald-500/10 border border-brand/20 hover:border-brand/40 transition-all duration-300 cursor-pointer mb-3" id="btn-start-empty">
             <div class="action-card-content">
-              <h3>Start an Empty Workout</h3>
-              <p>Log a workout on the fly without a template</p>
+              <h3 class="text-sm font-bold text-white">Start an Empty Workout</h3>
+              <p class="text-xs text-neutral-400 mt-0.5">Log a workout on the fly without a template</p>
             </div>
-            <div class="action-card-icon">
-              <i data-lucide="plus"></i>
+            <div class="action-card-icon w-10 h-10 rounded-full bg-brand/20 flex items-center justify-center text-brand shrink-0">
+              <i data-lucide="plus" class="w-5 h-5"></i>
             </div>
           </div>
 
           <!-- AI Coach Card -->
-          <div class="action-card ai-coach-card" id="btn-ai-coach-trigger">
+          <div class="action-card ai-coach-card flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 to-indigo-500/10 border border-violet-500/20 hover:border-violet-400/40 transition-all duration-300 cursor-pointer mb-3" id="btn-ai-coach-trigger">
             <div class="action-card-content">
-              <h3>
-                <i data-lucide="sparkles" class="ai-sparkles-icon"></i> AI Workout Coach
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="sparkles" class="ai-sparkles-icon w-4 h-4 text-violet-400"></i> AI Workout Coach
               </h3>
-              <p>Generate custom routines using local database & Workers AI</p>
+              <p class="text-xs text-neutral-400 mt-0.5">Generate custom routines using local database &amp; Workers AI</p>
             </div>
-            <div class="action-card-icon">
-              <i data-lucide="sparkles"></i>
+            <div class="action-card-icon w-10 h-10 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
+              <i data-lucide="sparkles" class="w-5 h-5"></i>
             </div>
           </div>
 
           <!-- Exercise Library Card -->
-          <div class="action-card exercise-library-card" id="btn-exercise-library-trigger" style="margin-top: 10px;">
+          <div class="action-card exercise-library-card flex items-center justify-between p-4 rounded-2xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 hover:border-cyan-400/40 transition-all duration-300 cursor-pointer mb-5" id="btn-exercise-library-trigger">
             <div class="action-card-content">
-              <h3>
-                <i data-lucide="dumbbell" class="exercises-dumbbell-icon" style="color: var(--color-primary); width: 18px; height: 18px; margin-right: 4px; vertical-align: middle;"></i> Exercise Database
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="dumbbell" class="exercises-dumbbell-icon w-4 h-4 text-cyan-400"></i> Exercise Database
               </h3>
-              <p>Browse exercise guides and build custom movements</p>
+              <p class="text-xs text-neutral-400 mt-0.5">Browse exercise guides and build custom movements</p>
             </div>
-            <div class="action-card-icon" style="background: rgba(0, 242, 254, 0.12); color: #00f2fe; box-shadow: 0 0 16px rgba(0, 242, 254, 0.15);">
-              <i data-lucide="book-open"></i>
+            <div class="action-card-icon w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+              <i data-lucide="book-open" class="w-5 h-5"></i>
             </div>
           </div>
 
 
           <!-- Templates Section -->
-          <div class="section-header" style="flex-wrap: wrap; gap: 8px;">
-            <h2>Templates</h2>
-            <div style="display: flex; gap: 8px;">
-              <button id="btn-import-text-template" class="btn-text-icon" style="background: rgba(212, 252, 52, 0.08); border: 1px dashed rgba(212, 252, 52, 0.3); color: #d4fc34;">
-                <i data-lucide="wand-2" style="width: 14px; height: 14px;"></i> Import from Text
+          <div class="section-header flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 class="text-sm font-extrabold text-neutral-300 tracking-wider uppercase">Templates</h2>
+            <div class="flex gap-2">
+              <button id="btn-import-text-template" class="btn-text-icon flex items-center gap-1.5 text-xs text-brand border border-brand/30 bg-brand/8 px-3 py-1.5 rounded-lg hover:bg-brand/15 transition-all duration-200">
+                <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Import from Text
               </button>
-              <button id="btn-new-template" class="btn-text-icon">
-                <i data-lucide="plus"></i> New Template
+              <button id="btn-new-template" class="btn-text-icon flex items-center gap-1.5 text-xs text-neutral-300 border border-white/10 bg-white/5 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-all duration-200">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> New Template
               </button>
             </div>
           </div>
@@ -353,10 +352,10 @@
 
         <!-- 2. HISTORY VIEW -->
         <section id="view-history" class="app-view">
-          <h1 class="view-title">Workout History</h1>
-          <div id="history-search-bar" class="search-container">
-            <i data-lucide="search" class="search-icon"></i>
-            <input type="text" id="input-history-search" placeholder="Search past workouts or exercises..." aria-label="Search past workouts or exercises">
+          <h1 class="view-title text-xl font-extrabold tracking-tight text-white mb-4">Workout History</h1>
+          <div id="history-search-bar" class="search-container flex items-center gap-3 px-4 py-3 rounded-xl bg-neutral-900/50 border border-white/5 mb-4">
+            <i data-lucide="search" class="search-icon w-4 h-4 text-neutral-500 shrink-0"></i>
+            <input type="text" id="input-history-search" placeholder="Search past workouts or exercises..." aria-label="Search past workouts or exercises" class="bg-transparent text-sm text-white placeholder-neutral-600 outline-none flex-1">
           </div>
           <div id="history-list" class="history-container">
             <!-- Dynamic history list items -->
@@ -365,15 +364,15 @@
 
         <!-- 3. EXERCISES VIEW -->
         <section id="view-exercises" class="app-view">
-          <h1 class="view-title">Exercises</h1>
+          <h1 class="view-title text-xl font-extrabold tracking-tight text-white mb-4">Exercises</h1>
           
-          <div class="exercises-controls">
-            <div class="search-container flex-grow">
-              <i data-lucide="search" class="search-icon"></i>
-              <input type="text" id="input-exercise-search" placeholder="Search exercises..." aria-label="Search exercises">
+          <div class="exercises-controls flex gap-3 mb-4">
+            <div class="search-container flex-grow flex items-center gap-3 px-4 py-3 rounded-xl bg-neutral-900/50 border border-white/5">
+              <i data-lucide="search" class="search-icon w-4 h-4 text-neutral-500 shrink-0"></i>
+              <input type="text" id="input-exercise-search" placeholder="Search exercises..." aria-label="Search exercises" class="bg-transparent text-sm text-white placeholder-neutral-600 outline-none flex-1">
             </div>
-            <button id="btn-create-exercise" class="btn-icon-only" title="Create Custom Exercise" aria-label="Create Custom Exercise">
-              <i data-lucide="plus"></i>
+            <button id="btn-create-exercise" class="btn-icon-only w-11 h-11 flex items-center justify-center rounded-xl bg-brand/10 border border-brand/20 text-brand hover:bg-brand/20 transition-all duration-200" title="Create Custom Exercise" aria-label="Create Custom Exercise">
+              <i data-lucide="plus" class="w-5 h-5"></i>
             </button>
           </div>
 
@@ -827,26 +826,26 @@
       </div>
 
       <!-- App Navigation Bar (Bottom Navigation) -->
-      <nav class="app-nav">
-        <button class="nav-item active" data-view="home">
-          <i data-lucide="home"></i>
-          <span>Home</span>
+      <nav class="app-nav flex justify-around items-center px-2 py-2 bg-neutral-950/95 backdrop-blur-xl border-t border-white/5">
+        <button class="nav-item active flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-brand transition-all duration-200" data-view="home">
+          <i data-lucide="home" class="w-5 h-5"></i>
+          <span class="text-[0.6rem] font-bold tracking-wide">Home</span>
         </button>
-        <button class="nav-item" data-view="workouts">
-          <i data-lucide="dumbbell"></i>
-          <span>Workouts</span>
+        <button class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-200 transition-all duration-200" data-view="workouts">
+          <i data-lucide="dumbbell" class="w-5 h-5"></i>
+          <span class="text-[0.6rem] font-bold tracking-wide">Workouts</span>
         </button>
-        <button class="nav-item" data-view="schedule">
-          <i data-lucide="calendar"></i>
-          <span>Schedule</span>
+        <button class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-200 transition-all duration-200" data-view="schedule">
+          <i data-lucide="calendar" class="w-5 h-5"></i>
+          <span class="text-[0.6rem] font-bold tracking-wide">Schedule</span>
         </button>
-        <button class="nav-item" data-view="history">
-          <i data-lucide="clock"></i>
-          <span>History</span>
+        <button class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-200 transition-all duration-200" data-view="history">
+          <i data-lucide="clock" class="w-5 h-5"></i>
+          <span class="text-[0.6rem] font-bold tracking-wide">History</span>
         </button>
-        <button class="nav-item" data-view="settings">
-          <i data-lucide="user"></i>
-          <span>Profile</span>
+        <button class="nav-item flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-200 transition-all duration-200" data-view="settings">
+          <i data-lucide="user" class="w-5 h-5"></i>
+          <span class="text-[0.6rem] font-bold tracking-wide">Profile</span>
         </button>
       </nav>
 
