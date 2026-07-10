@@ -3598,8 +3598,14 @@ function switchView(viewName) {
   document.querySelectorAll(".app-nav .nav-item").forEach(item => {
     if (item.dataset.view === viewName) {
       item.classList.add("active");
+      item.classList.add("text-brand");
+      item.classList.remove("text-neutral-500");
+      item.classList.remove("hover:text-neutral-200");
     } else {
       item.classList.remove("active");
+      item.classList.remove("text-brand");
+      item.classList.add("text-neutral-500");
+      item.classList.add("hover:text-neutral-200");
     }
   });
 
