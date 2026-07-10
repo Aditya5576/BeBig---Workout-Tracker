@@ -1857,10 +1857,16 @@ function showCustomConfirm(options = {}) {
   }
 
   modal.classList.remove("hidden");
+  modal.style.opacity = "1";
+  const content = modal.querySelector(".modal-content");
+  if (content) {
+    content.style.transform = "";
+    content.style.opacity = "1";
+  }
+
   if (window.gsap) {
     gsap.killTweensOf(modal);
     gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.18 });
-    const content = modal.querySelector(".modal-content");
     if (content) {
       gsap.killTweensOf(content);
       gsap.fromTo(content, { scale: 0.92, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(1.4)" });
@@ -1905,18 +1911,37 @@ function cancelActiveWorkout() {
     cancelText: "Keep Logging",
     isDanger: true,
     onConfirm: () => {
-      state.activeWorkout = null;
-      saveAllState();
-      stopWorkoutTimer();
-
-      const wPanel = document.getElementById("workout-panel");
-      if (wPanel) {
-        wPanel.style.transform = "";
-        wPanel.classList.remove("open");
-        wPanel.classList.remove("minimized");
+      try {
+        state.activeWorkout = null;
+        saveAllState();
+      } catch (saveErr) {
+        console.error("Error clearing active workout state on cancel:", saveErr);
       }
-      updateMiniBarState(false);
-      switchView("workouts");
+
+      try {
+        stopWorkoutTimer();
+      } catch (timerErr) {
+        console.error("Error stopping active workout timer on cancel:", timerErr);
+      }
+
+      try {
+        const wPanel = document.getElementById("workout-panel");
+        if (wPanel) {
+          wPanel.style.transform = "";
+          wPanel.classList.remove("open");
+          wPanel.classList.remove("minimized");
+        }
+      } catch (panelErr) {
+        console.error("Error updating panel UI classes on cancel:", panelErr);
+      }
+
+      try {
+        updateMiniBarState(false);
+        switchView("workouts");
+      } catch (navErr) {
+        console.error("Navigation error during cancel cleanup:", navErr);
+        window.location.reload(); // Fallback reload
+      }
     }
   });
 }
