@@ -2095,10 +2095,17 @@ function renderHomeView() {
     streakDayText.textContent = `${streak} Day${streak === 1 ? '' : 's'} Streak`;
   }
 
-  // Calculate sessions completed this week (past 7 days)
+  // Calculate sessions completed this week (since Monday 00:00:00 of current week)
   const weekSessions = document.getElementById("home-week-sessions");
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  const count = visibleHistory.filter(w => w.endTime >= sevenDaysAgo).length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
+  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  const mondayOfWeek = new Date(today);
+  mondayOfWeek.setDate(today.getDate() + distanceToMonday);
+  const mondayMs = mondayOfWeek.getTime();
+
+  const count = visibleHistory.filter(w => w.endTime >= mondayMs).length;
   if (weekSessions) {
     weekSessions.textContent = count;
   }
@@ -2325,6 +2332,8 @@ function openSchedulePicker(day) {
 
     button.addEventListener("click", () => {
       state.schedule[scheduleSelectedDay] = tmpl.id;
+      state.settings.dirty = true;
+      state.settings.updated_at = Date.now();
       saveAllState();
       renderScheduleView();
       modal.classList.add("hidden");
@@ -4045,6 +4054,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btnSetRecovery.addEventListener("click", () => {
       if (scheduleSelectedDay) {
         state.schedule[scheduleSelectedDay] = null;
+        state.settings.dirty = true;
+        state.settings.updated_at = Date.now();
         saveAllState();
         renderScheduleView();
         document.getElementById("modal-schedule-picker").classList.add("hidden");
@@ -4731,6 +4742,36 @@ document.addEventListener("DOMContentLoaded", () => {
     btnAdminResetPasswordSubmit.addEventListener("click", resetClientPassword);
   }
 
+  // Save Weekly Split button binding
+  const btnAdminSaveSplit = document.getElementById("btn-admin-save-split");
+  if (btnAdminSaveSplit) {
+    btnAdminSaveSplit.addEventListener("click", saveAdminClientSplit);
+  }
+
+  // Clear Network Activity Logs binding
+  const btnAdminClearLogs = document.getElementById("btn-admin-clear-logs");
+  if (btnAdminClearLogs) {
+    btnAdminClearLogs.addEventListener("click", async () => {
+      if (!confirm("Are you sure you want to clear all activity logs? This is permanent.")) return;
+      btnAdminClearLogs.disabled = true;
+      const originalText = btnAdminClearLogs.textContent;
+      btnAdminClearLogs.textContent = "Clearing...";
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/admin/logs/clear`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${state.auth.token}` }
+        });
+        if (!res.ok) throw new Error("Failed to clear logs");
+        await fetchLiveMonitorData();
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        btnAdminClearLogs.disabled = false;
+        btnAdminClearLogs.textContent = originalText;
+      }
+    });
+  }
+
   // Filters and search input listeners
   const inputAdminSearch = document.getElementById("input-admin-client-search");
   if (inputAdminSearch) {
@@ -5044,6 +5085,7 @@ async function syncData(isSilent = false) {
       settingsToPush = {
         unit: state.settings.unit,
         default_rest: state.settings.defaultRest,
+        schedule: state.schedule,
         updated_at: state.settings.updated_at
       };
     }
@@ -5198,6 +5240,16 @@ async function syncData(isSilent = false) {
       if ((remoteData.settings.updated_at || 0) >= (state.settings.updated_at || 0)) {
         state.settings.unit = remoteData.settings.unit;
         state.settings.defaultRest = remoteData.settings.default_rest;
+        state.settings.updated_at = remoteData.settings.updated_at;
+
+        if (remoteData.settings.schedule) {
+          state.schedule = remoteData.settings.schedule;
+        }
+
+        loadSettingsView();
+        if (document.getElementById("view-schedule").classList.contains("active")) {
+          renderScheduleView();
+        }
         state.settings.updated_at = remoteData.settings.updated_at;
         
         loadSettingsView();
@@ -5885,8 +5937,191 @@ function openAdminClientDetailModal(client) {
     }
   }
 
-  modal.classList.remove("hidden");
-  if (window.lucide) window.lucide.createIcons();
+  // Clear and load client weekly split settings
+  const daysContainer = document.getElementById("admin-split-days-container");
+  if (daysContainer) {
+    daysContainer.innerHTML = '<p class="empty-state-text" style="font-size:0.75rem; text-align:center; padding:10px 0;">Loading weekly split details...</p>';
+  }
+
+  fetch(`${API_BASE_URL}/api/admin/client/${client.id}/details`, {
+    headers: { "Authorization": `Bearer ${state.auth.token}` }
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.success) throw new Error(data.error || "Failed to load split details");
+    renderAdminSplitAssignerUI(data.templates, data.schedule);
+  })
+  .catch(err => {
+    console.error("Error loading split details:", err);
+    if (daysContainer) {
+      daysContainer.innerHTML = `<p class="empty-state-text" style="font-size:0.75rem; text-align:center; color:var(--color-danger); padding:10px 0;">Failed to load split details.</p>`;
+    }
+  });
+
+}
+
+function renderAdminSplitAssignerUI(templates, schedule) {
+  const daysContainer = document.getElementById("admin-split-days-container");
+  if (!daysContainer) return;
+
+  daysContainer.innerHTML = "";
+
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  daysOfWeek.forEach(day => {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.alignItems = "center";
+    row.style.justifyContent = "space-between";
+    row.style.gap = "10px";
+    row.style.fontSize = "0.78rem";
+
+    const dayName = document.createElement("span");
+    dayName.style.width = "40px";
+    dayName.style.fontWeight = "700";
+    dayName.style.color = "var(--text-muted)";
+    dayName.textContent = day;
+
+    const select = document.createElement("select");
+    select.id = `admin-split-select-${day}`;
+    select.className = "select-dropdown";
+    select.style.flex = "1";
+    select.style.height = "30px";
+    select.style.padding = "2px 8px";
+    select.style.fontSize = "0.75rem";
+    select.style.borderRadius = "8px";
+    select.style.background = "var(--bg-input)";
+    select.style.border = "1px solid var(--border-light)";
+    select.style.color = "var(--text-main)";
+
+    // Add recovery option
+    const optRest = document.createElement("option");
+    optRest.value = "";
+    optRest.textContent = "💤 System Recovery (Rest)";
+    select.appendChild(optRest);
+
+    // Add template options
+    templates.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      select.appendChild(opt);
+    });
+
+    // Pre-select current scheduled template
+    if (schedule && schedule[day]) {
+      select.value = schedule[day];
+    } else {
+      select.value = "";
+    }
+
+    row.appendChild(dayName);
+    row.appendChild(select);
+    daysContainer.appendChild(row);
+  });
+
+  // Re-bind preset select change event
+  const selectPreset = document.getElementById("select-admin-split-preset");
+  if (selectPreset) {
+    selectPreset.value = ""; // Reset preset value
+    
+    // Remove old event listener by cloning node
+    const newSelectPreset = selectPreset.cloneNode(true);
+    selectPreset.parentNode.replaceChild(newSelectPreset, selectPreset);
+
+    newSelectPreset.addEventListener("change", (e) => {
+      const val = e.target.value;
+      if (!val) return;
+
+      const splitSelects = {
+        "Mon": document.getElementById("admin-split-select-Mon"),
+        "Tue": document.getElementById("admin-split-select-Tue"),
+        "Wed": document.getElementById("admin-split-select-Wed"),
+        "Thu": document.getElementById("admin-split-select-Thu"),
+        "Fri": document.getElementById("admin-split-select-Fri"),
+        "Sat": document.getElementById("admin-split-select-Sat"),
+        "Sun": document.getElementById("admin-split-select-Sun")
+      };
+
+      // Helper to find a template by keyword
+      const findTemplateIdByKeyword = (keywords) => {
+        const found = templates.find(t => keywords.some(k => t.name.toLowerCase().includes(k)));
+        return found ? found.id : "";
+      };
+
+      // Clear all selects first
+      daysOfWeek.forEach(day => {
+        if (splitSelects[day]) splitSelects[day].value = "";
+      });
+
+      if (val === "ppl") {
+        const pushId = findTemplateIdByKeyword(["push"]);
+        const pullId = findTemplateIdByKeyword(["pull"]);
+        const legsId = findTemplateIdByKeyword(["legs", "squat", "lower"]);
+
+        if (splitSelects["Mon"]) splitSelects["Mon"].value = pushId;
+        if (splitSelects["Wed"]) splitSelects["Wed"].value = pullId;
+        if (splitSelects["Fri"]) splitSelects["Fri"].value = legsId;
+      } else if (val === "upper_lower") {
+        const upperId = findTemplateIdByKeyword(["upper", "chest", "back", "arms"]);
+        const lowerId = findTemplateIdByKeyword(["lower", "legs", "squat"]);
+
+        if (splitSelects["Mon"]) splitSelects["Mon"].value = upperId;
+        if (splitSelects["Tue"]) splitSelects["Tue"].value = lowerId;
+        if (splitSelects["Thu"]) splitSelects["Thu"].value = upperId;
+        if (splitSelects["Fri"]) splitSelects["Fri"].value = lowerId;
+      } else if (val === "full_body") {
+        const fbId = findTemplateIdByKeyword(["full", "body", "all", "general"]);
+
+        if (splitSelects["Mon"]) splitSelects["Mon"].value = fbId;
+        if (splitSelects["Wed"]) splitSelects["Wed"].value = fbId;
+        if (splitSelects["Fri"]) splitSelects["Fri"].value = fbId;
+      }
+    });
+  }
+}
+
+async function saveAdminClientSplit() {
+  if (!selectedAdminClient) return;
+
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const schedule = {};
+  
+  for (const day of daysOfWeek) {
+    const selectEl = document.getElementById(`admin-split-select-${day}`);
+    if (selectEl) {
+      schedule[day] = selectEl.value || null;
+    } else {
+      schedule[day] = null;
+    }
+  }
+
+  const btnSave = document.getElementById("btn-admin-save-split");
+  const originalText = btnSave.textContent;
+  btnSave.disabled = true;
+  btnSave.textContent = "Saving Split...";
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/admin/client/${selectedAdminClient.id}/schedule`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.auth.token}`
+      },
+      body: JSON.stringify({ schedule })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update split schedule");
+
+    alert(`Successfully saved workout split for ${selectedAdminClient.email}!`);
+    document.getElementById("modal-admin-client-detail").classList.add("hidden");
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    btnSave.disabled = false;
+    btnSave.textContent = originalText;
+  }
 }
 
 function handleAdminBlueprintChange(e) {

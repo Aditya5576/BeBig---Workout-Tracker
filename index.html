@@ -804,8 +804,11 @@
 
             <!-- Live Terminal Logs Section -->
             <div class="exercise-detail-section">
-              <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;">
-                <i data-lucide="terminal" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Live Network Activity Logs
+              <h3 style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 0.95rem; font-weight: 700; margin-bottom: 8px;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <i data-lucide="terminal" style="width: 16px; height: 16px; color: var(--color-primary);"></i> Live Network Activity Logs
+                </span>
+                <button id="btn-admin-clear-logs" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; font-size: 0.65rem; font-weight: 600; padding: 4px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">Clear Logs</button>
               </h3>
               <p class="modal-description" style="font-size: 0.72rem; margin-bottom: 10px; color: var(--text-dark);">Recent user activities logged in real-time.</p>
               
@@ -1418,6 +1421,34 @@
             <div style="font-size: 0.6rem; font-weight: 700; color: var(--text-dark); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 5px;">Password</div>
             <div style="font-size: 0.78rem; color: var(--text-muted);">🔒 PBKDF2 Hashed <span style="color: var(--text-dark);">(use Reset to set)</span></div>
           </div>
+        </div>
+
+        <!-- Weekly Split Assigner Section -->
+        <div style="margin-top: 20px; margin-bottom: 20px; padding: 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-light); border-radius: 14px;">
+          <h3 style="display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; color: var(--color-primary);">
+            <i data-lucide="calendar" style="width: 15px; height: 15px;"></i> Assign Workout Split (Protocol)
+          </h3>
+          <p class="modal-description" style="font-size: 0.7rem; margin-bottom: 12px; color: var(--text-dark);">Assign templates to weekly days. The client's app will update automatically.</p>
+          
+          <!-- Presets Selector Row -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-muted); flex-shrink: 0;">Apply Split Preset:</span>
+            <select id="select-admin-split-preset" class="select-dropdown" style="flex: 1; height: 28px; padding: 2px 6px; font-size: 0.72rem; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main);">
+              <option value="">-- Choose Preset --</option>
+              <option value="ppl">Push / Pull / Legs (Mon/Wed/Fri)</option>
+              <option value="upper_lower">Upper / Lower (Mon/Tue/Thu/Fri)</option>
+              <option value="full_body">Full Body (Mon/Wed/Fri)</option>
+              <option value="clear">Recovery / Rest All Days</option>
+            </select>
+          </div>
+
+          <div id="admin-split-days-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <!-- Mon-Sun populated dynamically in JS -->
+          </div>
+
+          <button id="btn-admin-save-split" class="btn-success btn-full-width" style="height: 36px; font-size: 0.8rem; font-weight: 700;">
+            Save Weekly Split
+          </button>
         </div>
 
         <!-- Inspector Action Buttons -->

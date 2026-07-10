@@ -48,6 +48,11 @@ app.use('/api/*', async (c, next) => {
     // Column already exists, ignore
   }
   try {
+    await c.env.DB.prepare("ALTER TABLE settings ADD COLUMN schedule_json TEXT").run();
+  } catch (e) {
+    // Column already exists, ignore
+  }
+  try {
     await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_exercises_user_id ON exercises(user_id)").run();
     await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_templates_user_id ON templates(user_id)").run();
     await c.env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_history_user_id ON history(user_id)").run();
@@ -451,7 +456,7 @@ app.get('/api/sync/pull', async (c) => {
       .all();
 
     const settingsPromise = c.env.DB.prepare(
-      'SELECT unit, default_rest, active_workout_json, updated_at FROM settings WHERE user_id = ?'
+      'SELECT unit, default_rest, active_workout_json, schedule_json, updated_at FROM settings WHERE user_id = ?'
     )
       .bind(userId)
       .first<any>();
@@ -513,6 +518,7 @@ app.get('/api/sync/pull', async (c) => {
       settingsPayload = {
         unit: settingsRes.unit,
         default_rest: settingsRes.default_rest,
+        schedule: settingsRes.schedule_json ? JSON.parse(settingsRes.schedule_json) : null,
         updated_at: settingsRes.updated_at
       };
     }
@@ -634,27 +640,32 @@ app.post('/api/sync/push', async (c) => {
 
     // Upsert settings & activeWorkout
     if (settings || activeWorkout !== undefined) {
-      const existing = await c.env.DB.prepare('SELECT unit, default_rest FROM settings WHERE user_id = ?').bind(userId).first<any>();
+      const existing = await c.env.DB.prepare('SELECT unit, default_rest, schedule_json FROM settings WHERE user_id = ?').bind(userId).first<any>();
       const unit = settings?.unit || existing?.unit || 'lbs';
       const defaultRest = settings?.default_rest || existing?.default_rest || 90;
+      const scheduleJson = settings?.schedule ? JSON.stringify(settings.schedule) : (existing?.schedule_json || null);
       const settingsUpdate = settings?.updated_at || now;
 
       statements.push(
         c.env.DB.prepare(
-          `INSERT INTO settings (user_id, unit, default_rest, active_workout_json, updated_at)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO settings (user_id, unit, default_rest, active_workout_json, schedule_json, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(user_id) DO UPDATE SET
              unit = excluded.unit,
              default_rest = excluded.default_rest,
-             active_workout_json = excluded.active_workout_json,
+             active_workout_json = CASE WHEN ? THEN excluded.active_workout_json ELSE settings.active_workout_json END,
+             schedule_json = CASE WHEN ? THEN excluded.schedule_json ELSE settings.schedule_json END,
              updated_at = excluded.updated_at
            WHERE excluded.updated_at >= settings.updated_at`
         ).bind(
           userId,
           unit,
           defaultRest,
-          activeWorkout ? JSON.stringify(activeWorkout) : null,
-          settingsUpdate
+          activeWorkout !== undefined ? JSON.stringify(activeWorkout) : null,
+          scheduleJson,
+          settingsUpdate,
+          activeWorkout !== undefined ? 1 : 0,
+          settings?.schedule !== undefined ? 1 : 0
         )
       );
     }
@@ -774,6 +785,106 @@ app.get('/api/admin/logs', async (c) => {
     return c.json({ success: true, logs });
   } catch (err: any) {
     return c.json({ error: 'Failed to fetch activity logs: ' + err.message }, 500);
+  }
+});
+
+// Clear network-wide activity logs
+app.post('/api/admin/logs/clear', async (c) => {
+  try {
+    await c.env.SESSIONS.delete('activity:logs');
+    await addActivityLog(c.env.SESSIONS, 'system@bebig.com', 'Admin cleared live terminal logs.');
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to clear activity logs: ' + err.message }, 500);
+  }
+});
+
+// Get target client details (templates + schedule settings)
+app.get('/api/admin/client/:id/details', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    // 1. Fetch templates
+    const templatesRes = await c.env.DB.prepare(
+      'SELECT id, name, notes, exercises_json, updated_at FROM templates WHERE user_id = ? AND deleted = 0'
+    )
+      .bind(clientId)
+      .all();
+    const templates = (templatesRes.results || []).map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      notes: t.notes,
+      exercises: JSON.parse(t.exercises_json),
+      updated_at: t.updated_at
+    }));
+
+    // 2. Fetch settings (schedule)
+    const settingsRes = await c.env.DB.prepare(
+      'SELECT unit, default_rest, schedule_json, updated_at FROM settings WHERE user_id = ?'
+    )
+      .bind(clientId)
+      .first<any>();
+
+    const schedule = settingsRes?.schedule_json ? JSON.parse(settingsRes.schedule_json) : {
+      "Mon": null,
+      "Tue": null,
+      "Wed": null,
+      "Thu": null,
+      "Fri": null,
+      "Sat": null,
+      "Sun": null
+    };
+
+    return c.json({
+      success: true,
+      templates,
+      schedule,
+      unit: settingsRes?.unit || 'lbs',
+      defaultRest: settingsRes?.default_rest || 90
+    });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to fetch client details: ' + err.message }, 500);
+  }
+});
+
+// Update client schedule split
+app.post('/api/admin/client/:id/schedule', async (c) => {
+  const clientId = c.req.param('id');
+  try {
+    const { schedule } = await c.req.json();
+    if (!schedule || typeof schedule !== 'object') {
+      return c.json({ error: 'Invalid schedule payload' }, 400);
+    }
+    
+    // Verify target client exists
+    const targetUser = await c.env.DB.prepare('SELECT id FROM users WHERE id = ?').bind(clientId).first();
+    if (!targetUser) {
+      return c.json({ error: 'Target client not found' }, 404);
+    }
+    
+    const now = Date.now();
+    const existing = await c.env.DB.prepare('SELECT unit, default_rest FROM settings WHERE user_id = ?').bind(clientId).first<any>();
+    const unit = existing?.unit || 'lbs';
+    const defaultRest = existing?.default_rest || 90;
+    
+    await c.env.DB.prepare(
+      `INSERT INTO settings (user_id, unit, default_rest, schedule_json, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         schedule_json = excluded.schedule_json,
+         updated_at = excluded.updated_at`
+    ).bind(
+      clientId,
+      unit,
+      defaultRest,
+      JSON.stringify(schedule),
+      now
+    ).run();
+    
+    await addActivityLog(c.env.SESSIONS, 'system@bebig.com', `Admin updated schedule split for client usr_${clientId}`);
+    
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: 'Failed to update schedule: ' + err.message }, 500);
   }
 });
 
