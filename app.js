@@ -1139,32 +1139,21 @@ function updateMiniBarState(visible) {
 }
 
 function startWorkoutSession(templateId = null) {
-  // If a workout is already active, prompt to finish it
+  // If a workout is already active, restore it
   if (state.activeWorkout) {
-    const restoreBtn = document.getElementById("btn-restore-workout");
-    if (restoreBtn) restoreBtn.click();
+    const wPanel = document.getElementById("workout-panel");
+    if (wPanel) {
+      wPanel.style.transform = "";
+      wPanel.classList.remove("minimized");
+      wPanel.classList.add("open");
+    }
+    updateMiniBarState(false);
     return;
   }
 
-  // Intercept to display recovery assessment modal
-  pendingTemplateId = templateId;
-  
-  // Reset active classes in recovery cards (set 'none' as default)
-  const recoveryCards = document.querySelectorAll(".recovery-option-card");
-  recoveryCards.forEach(c => {
-    c.classList.remove("active");
-    if (c.dataset.fatigue === "none") {
-      c.classList.add("active");
-    }
-  });
-
-  const recoveryModal = document.getElementById("modal-recovery-check");
-  if (recoveryModal) {
-    recoveryModal.classList.remove("hidden");
-  } else {
-    // Fallback if modal isn't present
-    initializeWorkoutSession(templateId, "none");
-  }
+  // Launch immediately with default fatigue = "none" (Feeling Strong)
+  // No modal blocker — instant response
+  initializeWorkoutSession(templateId, "none");
 }
 
 function initializeWorkoutSession(templateId, fatigue) {
