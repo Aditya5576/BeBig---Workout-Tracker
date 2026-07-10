@@ -15,12 +15,23 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// Enable CORS for our frontend pages and local development
-const ALLOWED_ORIGINS = ['https://bebigfit.pages.dev', 'http://localhost:8080', 'http://localhost:8787'];
+// Enable CORS for our frontend pages, all preview deploys, and local development
+function isAllowedOrigin(origin: string): boolean {
+  if (!origin) return false;
+  // Exact matches
+  if (origin === 'https://bebigfit.pages.dev') return true;
+  if (origin === 'http://localhost:8080') return true;
+  if (origin === 'http://localhost:8787') return true;
+  if (origin === 'http://localhost:3000') return true;
+  // Any Cloudflare Pages preview deploy for this project (*.bebigfit.pages.dev)
+  if (/^https:\/\/[a-z0-9-]+\.bebigfit\.pages\.dev$/.test(origin)) return true;
+  return false;
+}
+
 app.use(
   '/api/*',
   cors({
-    origin: (origin) => (ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]),
+    origin: (origin) => (isAllowedOrigin(origin) ? origin : 'https://bebigfit.pages.dev'),
     allowHeaders: ['Content-Type', 'Authorization'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['Content-Length'],

@@ -4914,7 +4914,7 @@ const API_BASE_URL = window.location.hostname === "localhost" || window.location
   ? "http://localhost:8787"
   : "https://bebig-backend.adityapatil2348.workers.dev";
 
-async function apiFetch(path, options = {}) {
+async function apiFetch(path, options = {}, timeoutMs = 12000) {
   const headers = options.headers || {};
   if (state.auth && state.auth.token) {
     headers["Authorization"] = `Bearer ${state.auth.token}`;
@@ -4923,16 +4923,29 @@ async function apiFetch(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed with status ${res.status}`);
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Request failed with status ${res.status}`);
+    }
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection and try again.');
+    }
+    throw err;
   }
-  return data;
 }
 
 function escapeHTML(str) {
@@ -5391,12 +5404,34 @@ async function handleAuthSubmit() {
   const errorEl = document.getElementById("auth-error-msg");
   const submitBtn = document.getElementById("btn-auth-submit");
 
+  // Helper: fetch with 12s timeout and friendly error messages
+  async function authFetch(url, body) {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 12000);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+      return data;
+    } catch (err) {
+      clearTimeout(tid);
+      if (err.name === 'AbortError') throw new Error("Request timed out. Please check your internet connection.");
+      if (err.message === 'Failed to fetch' || err.message.includes('fetch')) {
+        throw new Error("Cannot reach the server. Check your internet connection and try again.");
+      }
+      throw err;
+    }
+  }
+
   if (activeAuthTab === "forgot") {
     if (!email) {
-      if (errorEl) {
-        errorEl.textContent = "Email address is required.";
-        errorEl.classList.remove("hidden");
-      }
+      if (errorEl) { errorEl.textContent = "Email address is required."; errorEl.classList.remove("hidden"); }
       return;
     }
     submitBtn.disabled = true;
@@ -5404,22 +5439,11 @@ async function handleAuthSubmit() {
     if (errorEl) errorEl.classList.add("hidden");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Request failed");
-
+      const data = await authFetch(`${API_BASE_URL}/api/auth/forgot-password`, { email });
       alert(`🔐 Recovery code generated: ${data.code}\n(An email simulation was successful. Type this code to continue!)`);
-      
       switchAuthTab("reset");
     } catch (err) {
-      if (errorEl) {
-        errorEl.textContent = err.message;
-        errorEl.classList.remove("hidden");
-      }
+      if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove("hidden"); }
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Send Recovery Code";
@@ -5432,17 +5456,11 @@ async function handleAuthSubmit() {
     const newPassword = document.getElementById("input-auth-new-password").value;
 
     if (!code || !newPassword) {
-      if (errorEl) {
-        errorEl.textContent = "Recovery code and new password are required.";
-        errorEl.classList.remove("hidden");
-      }
+      if (errorEl) { errorEl.textContent = "Recovery code and new password are required."; errorEl.classList.remove("hidden"); }
       return;
     }
     if (newPassword.length < 6) {
-      if (errorEl) {
-        errorEl.textContent = "Password must be at least 6 characters.";
-        errorEl.classList.remove("hidden");
-      }
+      if (errorEl) { errorEl.textContent = "Password must be at least 6 characters."; errorEl.classList.remove("hidden"); }
       return;
     }
 
@@ -5451,25 +5469,14 @@ async function handleAuthSubmit() {
     if (errorEl) errorEl.classList.add("hidden");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code, newPassword })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Reset failed");
-
+      await authFetch(`${API_BASE_URL}/api/auth/reset-password`, { email, code, newPassword });
       alert("🎉 Password reset successfully! You can now log in with your new password.");
       switchAuthTab("login");
-      
       document.getElementById("input-auth-code").value = "";
       document.getElementById("input-auth-new-password").value = "";
       document.getElementById("input-auth-password").value = "";
     } catch (err) {
-      if (errorEl) {
-        errorEl.textContent = err.message;
-        errorEl.classList.remove("hidden");
-      }
+      if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove("hidden"); }
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Update Password";
@@ -5479,10 +5486,7 @@ async function handleAuthSubmit() {
 
   const password = document.getElementById("input-auth-password").value;
   if (!email || !password) {
-    if (errorEl) {
-      errorEl.textContent = "Email and password are required.";
-      errorEl.classList.remove("hidden");
-    }
+    if (errorEl) { errorEl.textContent = "Email and password are required."; errorEl.classList.remove("hidden"); }
     return;
   }
 
@@ -5497,25 +5501,11 @@ async function handleAuthSubmit() {
     if (activeAuthTab === "signup") {
       const nameInput = document.getElementById("input-auth-name");
       const nameVal = nameInput ? nameInput.value.trim() : "";
-      if (!nameVal) {
-        throw new Error("Full Name is required.");
-      }
+      if (!nameVal) throw new Error("Full Name is required.");
       payload.name = nameVal;
     }
 
-    const response = await fetch(`${API_BASE_URL}${route}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Authentication failed");
-    }
+    const data = await authFetch(`${API_BASE_URL}${route}`, payload);
 
     state.auth = {
       email: data.email,
