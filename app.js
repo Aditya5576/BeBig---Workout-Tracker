@@ -3227,13 +3227,13 @@ function saveCustomExercise() {
 
   const name = nameEl.value.trim();
   if (!name) {
-    alert("Please enter an exercise name.");
+    showToast("Please enter an exercise name.", "error");
     return;
   }
 
   // Check if exists
   if (state.exercises.some(ex => ex.name.toLowerCase() === name.toLowerCase())) {
-    alert("An exercise with this name already exists!");
+    showToast("An exercise with this name already exists!", "error");
     return;
   }
 
@@ -3614,12 +3614,12 @@ function saveWorkoutTemplate() {
   const name = nameInput.value.trim();
 
   if (!name) {
-    alert("Please enter a template name!");
+    showToast("Please enter a template name!", "error");
     return;
   }
 
   if (templateEditorExercises.length === 0) {
-    alert("Please add at least one exercise to the template!");
+    showToast("Please add at least one exercise to the template!", "error");
     return;
   }
 
@@ -5126,6 +5126,62 @@ function escapeHTML(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function showToast(message, type = "success") {
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    container.style.position = "fixed";
+    container.style.top = "20px";
+    container.style.right = "20px";
+    container.style.zIndex = "9999";
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.gap = "10px";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `custom-toast ${type}`;
+  toast.style.background = "rgba(13, 18, 32, 0.85)";
+  toast.style.backdropFilter = "blur(12px)";
+  toast.style.webkitBackdropFilter = "blur(12px)";
+  toast.style.border = type === "error" ? "1px solid rgba(239, 68, 68, 0.3)" : "1px solid rgba(16, 185, 129, 0.3)";
+  toast.style.color = type === "error" ? "#ef4444" : "var(--color-primary)";
+  toast.style.padding = "12px 18px";
+  toast.style.borderRadius = "12px";
+  toast.style.fontSize = "0.82rem";
+  toast.style.fontWeight = "600";
+  toast.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)";
+  toast.style.display = "flex";
+  toast.style.alignItems = "center";
+  toast.style.gap = "8px";
+  toast.style.opacity = "0";
+  toast.style.transform = "translateY(-10px)";
+  toast.style.transition = "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+
+  const icon = type === "error" ? "⚠️" : "✅";
+  toast.innerHTML = `<span>${icon}</span> <span>${escapeHTML(message)}</span>`;
+
+  container.appendChild(toast);
+
+  toast.offsetHeight; // trigger reflow
+
+  toast.style.opacity = "1";
+  toast.style.transform = "translateY(0)";
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-10px)";
+    setTimeout(() => {
+      toast.remove();
+      if (container.children.length === 0) {
+        container.remove();
+      }
+    }, 300);
+  }, 3200);
 }
 
 let isSyncing = false;
@@ -7249,13 +7305,13 @@ function initWorkoutTextParser() {
     btnSubmit.addEventListener("click", () => {
       const text = textInput.value.trim();
       if (!text) {
-        alert("Please paste some workout text first!");
+        showToast("Please paste some workout text first!", "error");
         return;
       }
 
       const template = parseWorkoutText(text);
       if (!template || template.exercises.length === 0) {
-        alert("Could not identify any exercises. Please check your text format.");
+        showToast("Could not identify any exercises. Please check your text format.", "error");
         return;
       }
 
