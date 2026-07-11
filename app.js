@@ -193,6 +193,7 @@ function initStore() {
   state.history = Array.isArray(storedHistory) ? storedHistory : [];
 
   state.activeWorkout = store.get("activeWorkout", null);
+  state.activeWorkoutClearedAt = store.get("activeWorkoutClearedAt", 0);
   state.settings = store.get("settings", { unit: "lbs", defaultRest: 90, notificationsEnabled: false, broadcastFilterDuration: "12" });
   if (!state.settings || typeof state.settings !== 'object') {
     state.settings = { unit: "lbs", defaultRest: 90, notificationsEnabled: false, broadcastFilterDuration: "12" };
@@ -265,6 +266,9 @@ function initStore() {
 }
 
 function saveAllState() {
+  if (!_isPerformingSync && state.activeWorkout) {
+    state.activeWorkout.updated_at = Date.now();
+  }
   // Only persist custom exercises to local storage to keep JSON sizes tiny and saves instant
   const customExercises = state.exercises.filter(ex => ex.id && String(ex.id).startsWith('custom-'));
   store.set("exercises", customExercises);
@@ -272,6 +276,7 @@ function saveAllState() {
   store.set("templates", state.templates);
   store.set("history", state.history);
   store.set("activeWorkout", state.activeWorkout);
+  store.set("activeWorkoutClearedAt", state.activeWorkoutClearedAt || 0);
   store.set("settings", state.settings);
   store.set("auth", state.auth);
   store.set("bebig_schedule", state.schedule);
@@ -1838,6 +1843,7 @@ function finishActiveWorkout() {
   
   // Clear active workout
   state.activeWorkout = null;
+  state.activeWorkoutClearedAt = Date.now();
   saveAllState();
 
   // Instant cloud sync
@@ -1984,6 +1990,7 @@ function cancelActiveWorkout() {
 
       try {
         state.activeWorkout = null;
+        state.activeWorkoutClearedAt = Date.now();
         saveAllState();
       } catch (saveErr) {
         console.error("Error clearing active workout state on cancel:", saveErr);
@@ -5122,6 +5129,7 @@ function escapeHTML(str) {
 }
 
 let isSyncing = false;
+let _isPerformingSync = false;
 
 let _syncWriteTimer = null; // debounce timer for post-write syncs
 let _lastPushedActiveWorkoutStr = null; // tracker for active workout session pushes
@@ -5149,6 +5157,7 @@ function scheduleSyncAfterWrite() {
 async function syncData(isSilent = false) {
   if (isSyncing || !state.auth || !state.auth.token) return;
   isSyncing = true;
+  _isPerformingSync = true;
 
   if (!isSilent) SyncPill.setSyncing();
 
@@ -5338,43 +5347,56 @@ async function syncData(isSilent = false) {
       }
     }
 
-    // Active Workout Sync (Real-time Session mirroring)
+    // Active Workout Sync (Real-time Session mirroring with local version overrides)
     if (remoteData.activeWorkout !== undefined) {
       const currentActiveStr = JSON.stringify(state.activeWorkout);
       const remoteActiveStr = JSON.stringify(remoteData.activeWorkout);
 
       if (currentActiveStr !== remoteActiveStr) {
         if (remoteData.activeWorkout) {
-          state.activeWorkout = remoteData.activeWorkout;
-          _lastPushedActiveWorkoutStr = remoteActiveStr; // Align pushed state tracker to prevent feedback loops
+          // Only overwrite if the remote active workout is actually newer than our local one!
+          const localUpdatedAt = state.activeWorkout ? (state.activeWorkout.updated_at || 0) : 0;
+          const remoteUpdatedAt = remoteData.activeWorkout.updated_at || 0;
+          const clearedAt = state.activeWorkoutClearedAt || 0;
           
-          // Only rebuild the active workout DOM if the panel is NOT currently open
-          // (user is actively editing sets/typing). If panel is open, just update state
-          // silently — the DOM will sync on next user-initiated re-render.
-          const wPanel = document.getElementById("workout-panel");
-          const isPanelOpen = wPanel && wPanel.classList.contains("open");
-          if (!isPanelOpen) {
-            renderActiveWorkoutUI();
+          if (remoteUpdatedAt > localUpdatedAt && remoteUpdatedAt > clearedAt) {
+            state.activeWorkout = remoteData.activeWorkout;
+            _lastPushedActiveWorkoutStr = remoteActiveStr; // Align pushed state tracker to prevent feedback loops
+            
+            // Only rebuild the active workout DOM if the panel is NOT currently open
+            // (user is actively editing sets/typing). If panel is open, just update state
+            // silently — the DOM will sync on next user-initiated re-render.
+            const wPanel = document.getElementById("workout-panel");
+            const isPanelOpen = wPanel && wPanel.classList.contains("open");
+            if (!isPanelOpen) {
+              renderActiveWorkoutUI();
+            }
+            
+            // Ensure panel shows up as minimized if it isn't already visible
+            if (wPanel && !wPanel.classList.contains("open") && !wPanel.classList.contains("minimized")) {
+              wPanel.classList.add("minimized");
+              updateMiniBarState(true);
+            }
+            startWorkoutTimer();
           }
-          
-          // Ensure panel shows up as minimized if it isn't already visible
-          if (wPanel && !wPanel.classList.contains("open") && !wPanel.classList.contains("minimized")) {
-            wPanel.classList.add("minimized");
-            updateMiniBarState(true);
-          }
-          startWorkoutTimer();
         } else {
           // Workout finished or discarded on other device
-          state.activeWorkout = null;
-          _lastPushedActiveWorkoutStr = null;
+          // Only clear local active workout if we don't have a newer local modification
+          const localUpdatedAt = state.activeWorkout ? (state.activeWorkout.updated_at || 0) : 0;
+          const remoteSettingsUpdatedAt = remoteData.settings ? (remoteData.settings.updated_at || 0) : 0;
           
-          stopWorkoutTimer();
-          const wPanel = document.getElementById("workout-panel");
-          if (wPanel) {
-            wPanel.style.transform = "";
-            wPanel.classList.remove("open", "minimized");
+          if (remoteSettingsUpdatedAt >= localUpdatedAt) {
+            state.activeWorkout = null;
+            _lastPushedActiveWorkoutStr = null;
+            
+            stopWorkoutTimer();
+            const wPanel = document.getElementById("workout-panel");
+            if (wPanel) {
+              wPanel.style.transform = "";
+              wPanel.classList.remove("open", "minimized");
+            }
+            updateMiniBarState(false);
           }
-          updateMiniBarState(false);
         }
       }
     }
@@ -5399,6 +5421,7 @@ async function syncData(isSilent = false) {
     else SyncPill.setError();
   } finally {
     isSyncing = false;
+    _isPerformingSync = false;
     updateCloudUI();
 
     // If new changes were made during the sync (marking items dirty), trigger a follow-up sync
