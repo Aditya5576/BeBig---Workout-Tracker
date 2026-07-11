@@ -1629,7 +1629,17 @@ function handleActiveWorkoutClickEvents(e) {
   }
 }
 
-// Bind input changes to state
+// Bind input changes to state — uses debounced save to prevent sync from
+// rebuilding the DOM while the user is still typing (which steals focus on mobile).
+let _workoutInputSaveTimer = null;
+function _debouncedWorkoutSave() {
+  if (_workoutInputSaveTimer) clearTimeout(_workoutInputSaveTimer);
+  _workoutInputSaveTimer = setTimeout(() => {
+    saveAllState();
+    _workoutInputSaveTimer = null;
+  }, 600);
+}
+
 function handleActiveWorkoutInputChanges(e) {
   const input = e.target;
 
@@ -1639,7 +1649,7 @@ function handleActiveWorkoutInputChanges(e) {
     const exIdx = parseInt(card.dataset.index);
     if (state.activeWorkout && state.activeWorkout.exercises[exIdx]) {
       state.activeWorkout.exercises[exIdx].note = input.value;
-      saveAllState();
+      _debouncedWorkoutSave();
     }
     return;
   }
@@ -1684,7 +1694,7 @@ function handleActiveWorkoutInputChanges(e) {
     } else if (field === "reps") {
       set.reps = input.value === "" ? "" : parseInt(input.value);
     }
-    saveAllState();
+    _debouncedWorkoutSave();
   }
 }
 
@@ -1725,6 +1735,35 @@ function addExercisesToWorkout(selectedIds) {
 function finishActiveWorkout() {
   if (!state.activeWorkout) return;
 
+  // Hide rest timer if it's showing (user may have skipped it and tapped Finish)
+  RestTimer.hide();
+
+  // Flush any pending debounced input saves so state is fresh
+  if (_workoutInputSaveTimer) {
+    clearTimeout(_workoutInputSaveTimer);
+    _workoutInputSaveTimer = null;
+    saveAllState();
+  }
+
+  // Read live values from DOM inputs before validating (they may not have been flushed yet)
+  const container = document.getElementById("active-exercises-list");
+  if (container) {
+    container.querySelectorAll(".active-exercise-card").forEach(card => {
+      const exIdx = parseInt(card.dataset.index);
+      const activeEx = state.activeWorkout.exercises[exIdx];
+      if (!activeEx) return;
+      card.querySelectorAll(".set-table-row").forEach(row => {
+        const setIdx = parseInt(row.dataset.setIndex);
+        const set = activeEx.sets[setIdx];
+        if (!set) return;
+        const weightInput = row.querySelector(".input-set-weight");
+        const repsInput = row.querySelector(".input-set-reps");
+        if (weightInput) set.weight = weightInput.value === "" ? "" : parseFloat(weightInput.value);
+        if (repsInput) set.reps = repsInput.value === "" ? "" : parseInt(repsInput.value);
+      });
+    });
+  }
+
   // Validate that there is at least one completed set
   let completedSetCount = 0;
   state.activeWorkout.exercises.forEach(ex => {
@@ -1734,7 +1773,15 @@ function finishActiveWorkout() {
   });
 
   if (completedSetCount === 0) {
-    alert("Please complete at least one set before finishing the workout!");
+    showCustomConfirm({
+      title: "No Sets Completed",
+      message: "Please complete at least one set (tap the checkmark) before finishing the workout.",
+      confirmText: "OK",
+      cancelText: "Go Back",
+      isDanger: false,
+      onConfirm: () => {},
+      onCancel: () => {}
+    });
     return;
   }
 
@@ -1856,19 +1903,26 @@ function showCustomConfirm(options = {}) {
     btnOk.className = "btn-success";
   }
 
+  // Kill any lingering GSAP tweens from previous opens
+  if (window.gsap) {
+    gsap.killTweensOf(modal);
+    const prevContent = modal.querySelector(".modal-content");
+    if (prevContent) gsap.killTweensOf(prevContent);
+  }
+
+  // Force-reset all inline styles to guarantee the modal is visible
   modal.classList.remove("hidden");
   modal.style.opacity = "1";
+  modal.style.pointerEvents = "auto";
   const content = modal.querySelector(".modal-content");
   if (content) {
-    content.style.transform = "";
+    content.style.transform = "scale(1)";
     content.style.opacity = "1";
   }
 
   if (window.gsap) {
-    gsap.killTweensOf(modal);
     gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.18 });
     if (content) {
-      gsap.killTweensOf(content);
       gsap.fromTo(content, { scale: 0.92, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(1.4)" });
     }
   }
@@ -1879,27 +1933,33 @@ function showCustomConfirm(options = {}) {
   btnCancel.parentNode.replaceChild(newBtnCancel, btnCancel);
   btnOk.parentNode.replaceChild(newBtnOk, btnOk);
 
-  const closeModal = () => {
+  const closeModal = (callback) => {
+    // Block touches immediately so user can't double-tap
+    modal.style.pointerEvents = "none";
+
     if (window.gsap) {
       const content = modal.querySelector(".modal-content");
-      gsap.to(content, { scale: 0.92, opacity: 0, duration: 0.15, onComplete: () => {
-        gsap.to(modal, { opacity: 0, duration: 0.1, onComplete: () => {
+      gsap.to(content, { scale: 0.92, opacity: 0, duration: 0.12, onComplete: () => {
+        gsap.to(modal, { opacity: 0, duration: 0.08, onComplete: () => {
           modal.classList.add("hidden");
+          modal.style.pointerEvents = "";
+          // Fire callback AFTER the modal is fully hidden so it doesn't block the action
+          if (callback) callback();
         }});
       }});
     } else {
       modal.classList.add("hidden");
+      modal.style.pointerEvents = "";
+      if (callback) callback();
     }
   };
 
   newBtnCancel.addEventListener("click", () => {
-    closeModal();
-    onCancel();
+    closeModal(onCancel);
   });
 
   newBtnOk.addEventListener("click", () => {
-    closeModal();
-    onConfirm();
+    closeModal(onConfirm);
   });
 }
 
@@ -1911,6 +1971,17 @@ function cancelActiveWorkout() {
     cancelText: "Keep Logging",
     isDanger: true,
     onConfirm: () => {
+      // Kill rest timer if running
+      try {
+        RestTimer.hide();
+      } catch (e) {}
+
+      // Flush any pending debounced input saves
+      if (_workoutInputSaveTimer) {
+        clearTimeout(_workoutInputSaveTimer);
+        _workoutInputSaveTimer = null;
+      }
+
       try {
         state.activeWorkout = null;
         saveAllState();
@@ -4375,6 +4446,17 @@ document.addEventListener("DOMContentLoaded", () => {
   if (activeExList) {
     activeExList.addEventListener("click", handleActiveWorkoutClickEvents);
     activeExList.addEventListener("input", handleActiveWorkoutInputChanges);
+    // Immediately persist state when user blurs off a workout input (taps away or taps a button)
+    activeExList.addEventListener("focusout", (e) => {
+      const input = e.target;
+      if (input.classList.contains("input-set-weight") || input.classList.contains("input-set-reps") || input.classList.contains("input-exercise-note")) {
+        if (_workoutInputSaveTimer) {
+          clearTimeout(_workoutInputSaveTimer);
+          _workoutInputSaveTimer = null;
+        }
+        saveAllState();
+      }
+    });
   }
 
   const btnAddExToWorkout = document.getElementById("btn-add-exercise-to-workout");
@@ -5266,10 +5348,16 @@ async function syncData(isSilent = false) {
           state.activeWorkout = remoteData.activeWorkout;
           _lastPushedActiveWorkoutStr = remoteActiveStr; // Align pushed state tracker to prevent feedback loops
           
-          renderActiveWorkoutUI();
+          // Only rebuild the active workout DOM if the panel is NOT currently open
+          // (user is actively editing sets/typing). If panel is open, just update state
+          // silently — the DOM will sync on next user-initiated re-render.
+          const wPanel = document.getElementById("workout-panel");
+          const isPanelOpen = wPanel && wPanel.classList.contains("open");
+          if (!isPanelOpen) {
+            renderActiveWorkoutUI();
+          }
           
           // Ensure panel shows up as minimized if it isn't already visible
-          const wPanel = document.getElementById("workout-panel");
           if (wPanel && !wPanel.classList.contains("open") && !wPanel.classList.contains("minimized")) {
             wPanel.classList.add("minimized");
             updateMiniBarState(true);
