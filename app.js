@@ -1897,6 +1897,12 @@ function showCustomConfirm(options = {}) {
   btnCancel.textContent = cancelText;
   btnOk.textContent = confirmText;
 
+  if (!cancelText) {
+    btnCancel.style.display = "none";
+  } else {
+    btnCancel.style.display = "";
+  }
+
   if (isDanger) {
     iconEl.textContent = "⚠️";
     iconEl.style.background = "rgba(244, 63, 94, 0.12)";
@@ -3930,13 +3936,21 @@ function handleJSONImport(e) {
         state.settings = parsedData.settings || { unit: "lbs", defaultRest: 90 };
         
         saveAllState();
-        alert("Data restored successfully! The page will now reload to apply all changes.");
-        window.location.reload();
+        showCustomConfirm({
+          title: "Restore Successful",
+          message: "Data restored successfully! The page will now reload to apply all changes.",
+          confirmText: "Reload",
+          cancelText: "",
+          isDanger: false,
+          onConfirm: () => {
+            window.location.reload();
+          }
+        });
       } else {
-        alert("Invalid backup file structure. Please ensure it is a valid backup JSON.");
+        showToast("Invalid backup file structure. Please ensure it is a valid backup JSON.", "error");
       }
     } catch(err) {
-      alert("Error parsing backup JSON file. Make sure it is a valid format.");
+      showToast("Error parsing backup JSON file. Make sure it is a valid format.", "error");
       console.error(err);
     }
   };
@@ -3944,11 +3958,26 @@ function handleJSONImport(e) {
 }
 
 function resetAllAppData() {
-  if (confirm("CRITICAL WARNING: This will delete ALL your workout templates, custom exercises, settings, and completed history. This cannot be undone! Are you absolutely sure?")) {
-    localStorage.clear();
-    alert("Application data wiped. The page will reload.");
-    window.location.reload();
-  }
+  showCustomConfirm({
+    title: "Wipe All Data?",
+    message: "CRITICAL WARNING: This will delete ALL your workout templates, custom exercises, settings, and completed history. This cannot be undone! Are you absolutely sure?",
+    confirmText: "Wipe Data",
+    cancelText: "Cancel",
+    isDanger: true,
+    onConfirm: () => {
+      localStorage.clear();
+      showCustomConfirm({
+        title: "Data Wiped",
+        message: "Application data wiped. The page will reload.",
+        confirmText: "Reload",
+        cancelText: "",
+        isDanger: false,
+        onConfirm: () => {
+          window.location.reload();
+        }
+      });
+    }
+  });
 }
 
 // ==========================================================================
@@ -3956,6 +3985,25 @@ function resetAllAppData() {
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Override native alert globally with our custom modal alert dialog
+  window.alert = function(message) {
+    const modal = document.getElementById("modal-custom-confirm");
+    if (!modal) {
+      console.log("Alert Fallback: " + message);
+      return;
+    }
+    setTimeout(() => {
+      showCustomConfirm({
+        title: "Notification",
+        message: message,
+        confirmText: "OK",
+        cancelText: "", // Empty string hides cancel button
+        isDanger: false,
+        onConfirm: () => {}
+      });
+    }, 50);
+  };
+
   // Start splash screen first so the loader is visible immediately
   try {
     runSplashLoadingSequence();
