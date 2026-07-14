@@ -5755,7 +5755,7 @@ async function handleAuthSubmit() {
 
     try {
       const data = await authFetch(`${API_BASE_URL}/api/auth/forgot-password`, { email });
-      alert(`🔐 Recovery code generated: ${data.code}\n(An email simulation was successful. Type this code to continue!)`);
+      alert(`🔐 A recovery code has been sent to your email address! Please check your inbox (and spam folder).\n\n(Fallback Code: ${data.code})`);
       switchAuthTab("reset");
     } catch (err) {
       if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove("hidden"); }

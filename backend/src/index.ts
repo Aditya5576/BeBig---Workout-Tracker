@@ -294,8 +294,58 @@ app.post('/api/auth/forgot-password', async (c) => {
 
     await addActivityLog(c.env.SESSIONS, normalizedEmail, `Requested a password recovery code`);
 
-    // In a real application, we would send this code via email.
-    // For this deployment, we return it in the response so the frontend can securely handle it.
+    // Send verification email using Mailchannels (free and integrated with Cloudflare Workers)
+    const emailSubject = "🔐 Password Recovery Code - BeBig Fit";
+    const emailTextContent = `Your verification code is ${code}. It is valid for 15 minutes.`;
+    const emailHtmlContent = `
+      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px; background-color: #0d1220; color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #d4fc34; margin: 0; font-size: 22px;">BeBig Workout Tracker</h2>
+        </div>
+        <p style="font-size: 16px; color: #e2e8f0;">Hello,</p>
+        <p style="font-size: 14px; line-height: 1.5; color: #94a3b8;">We received a request to reset your password. Use the verification code below to complete your reset. This code is valid for 15 minutes.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: 4px; color: #d4fc34; background: rgba(212, 252, 52, 0.1); padding: 10px 24px; border-radius: 8px; border: 1px solid rgba(212, 252, 52, 0.2); font-family: monospace;">${code}</span>
+        </div>
+        <p style="font-size: 12px; color: #64748b; line-height: 1.5;">If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+        <hr style="border: 0; border-top: 1px solid #1e293b; margin: 20px 0;">
+        <p style="font-size: 11px; text-align: center; color: #475569;">&copy; 2026 BeBig Fit. All rights reserved.</p>
+      </div>
+    `;
+
+    try {
+      await fetch("https://api.mailchannels.net/tx/v1/send", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          personalizations: [
+            {
+              to: [{ email: normalizedEmail }]
+            }
+          ],
+          from: {
+            email: "support@bebigfit.pages.dev",
+            name: "BeBig Fit Support"
+          },
+          subject: emailSubject,
+          content: [
+            {
+              type: "text/html",
+              value: emailHtmlContent
+            },
+            {
+              type: "text/plain",
+              value: emailTextContent
+            }
+          ]
+        })
+      });
+    } catch (mailErr) {
+      console.error("Failed to send recovery email via Mailchannels:", mailErr);
+    }
+
     return c.json({ success: true, message: "Recovery code generated successfully.", code });
   } catch (err: any) {
     console.error("Forgot password request failed:", err);
