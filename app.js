@@ -5468,11 +5468,19 @@ async function syncData(isSilent = false) {
             _lastPushedActiveWorkoutStr = remoteActiveStr; // Align pushed state tracker to prevent feedback loops
             
             // Only rebuild the active workout DOM if the panel is NOT currently open
-            // (user is actively editing sets/typing). If panel is open, just update state
-            // silently — the DOM will sync on next user-initiated re-render.
+            // or if the user is NOT actively typing (to avoid focus loss and layout disruption).
             const wPanel = document.getElementById("workout-panel");
             const isPanelOpen = wPanel && wPanel.classList.contains("open");
-            if (!isPanelOpen) {
+            const activeInput = document.activeElement;
+            const isTyping = activeInput && (
+              activeInput.classList.contains("input-set-weight") || 
+              activeInput.classList.contains("input-set-reps") || 
+              activeInput.classList.contains("input-exercise-note") || 
+              activeInput.id === "input-workout-name" || 
+              activeInput.id === "input-workout-notes"
+            );
+
+            if (!isPanelOpen || !isTyping) {
               renderActiveWorkoutUI();
             }
             
